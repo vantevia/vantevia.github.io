@@ -12,41 +12,7 @@ const CONFIG = {
   CHANGELOG_SHEET_NAME: "TD3-CL" 
 };
 
-function doGet(e) {
-  return ContentService.createTextOutput('').setMimeType(ContentService.MimeType.TEXT)
-    .addHeader('Access-Control-Allow-Origin', '*')
-    .addHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-    .addHeader('Access-Control-Allow-Headers', 'Content-Type');
-}
-
-function doOptions(e) {
-  return ContentService.createTextOutput('')
-    .addHeader('Access-Control-Allow-Origin', '*')
-    .addHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-    .addHeader('Access-Control-Allow-Headers', 'Content-Type');
-}
-
 function doPost(e) {
-  const user = Session.getEffectiveUser();
-  const userEmail = user.getEmail();
-  
-  // AnonymousUser means they're not authenticated
-  if (userEmail === 'unknown') {
-    return ContentService.createTextOutput(JSON.stringify({ 
-      status: 'error', 
-      message: 'You must authenticate first. Opening authentication...' 
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  const authorizedEmail = "mapacore4152@gmail.com";
-  
-  if (userEmail !== authorizedEmail) {
-    return ContentService.createTextOutput(JSON.stringify({ 
-      status: 'error', 
-      message: 'Unauthorized: Only ' + authorizedEmail + ' can edit' 
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-
   // Use lock to prevent concurrent overwrites
   const lock = LockService.getScriptLock();
   // Wait up to 30 seconds for other processes to finish
@@ -66,15 +32,13 @@ function doPost(e) {
     }
 
     return ContentService.createTextOutput(JSON.stringify({ status: 'success' }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .addHeader('Access-Control-Allow-Origin', '*');
+      .setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ 
       status: 'error', 
       message: err.toString(),
       stack: err.stack
-      .addHeader('Access-Control-Allow-Origin', '*')
     })).setMimeType(ContentService.MimeType.JSON);
     
   } finally {
