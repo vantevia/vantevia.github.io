@@ -10,12 +10,15 @@ export const useScreenshot = () => {
     if (!el) return;
     setStatus(act);
     
-    // Scroll to top to ensure coordinates are relative to 0
+    // 1. Force the browser to confirm fonts are usable
+    await document.fonts.ready;
+    
+    // 2. Scroll to top to prevent "sinking" coordinates
     const scrollPos = window.scrollY;
     window.scrollTo(0, 0);
     
-    // Wait for render/fonts
-    await new Promise(r => setTimeout(r, 600));
+    // 3. Give it a long buffer to ensure GitHub Pages assets are painted
+    await new Promise(r => setTimeout(r, 800));
 
     try {
       const canvas = await html2canvas(el, {
@@ -27,46 +30,60 @@ export const useScreenshot = () => {
         imageTimeout: 0,
         scrollX: 0,
         scrollY: 0,
-        // --- THE ACTUAL FIX FOR VERTICAL CENTERING ---
+        // --- THE "REBUILD FROM SCRATCH" CLONE FIX ---
         onclone: (clonedDoc: any) => {
-          // 1. Target the main content wrapper
-          const containers = clonedDoc.querySelectorAll('.flex-1.flex.justify-between.items-center');
+          // Find every wide grid card in the clone
+          const cards = clonedDoc.querySelectorAll('.group.relative.w-full');
           
-          containers.forEach((container: any) => {
-            // Force standard flex centering
-            container.style.display = 'flex';
-            container.style.flexDirection = 'row';
-            container.style.alignItems = 'center';
-            container.style.justifyContent = 'space-between';
-            container.style.height = '100%';
-            
-            // 2. Fix the text block (Title, Artist, Tags)
-            // html2canvas often adds "leading" (space) to text which causes the sink.
-            // We force line-height to 1 to strip that empty space.
-            const textBlocks = container.querySelectorAll('.flex-col');
-            textBlocks.forEach((block: any) => {
-              block.style.display = 'flex';
-              block.style.flexDirection = 'column';
-              block.style.justifyContent = 'center';
-              block.style.height = '100%';
-              
-              // Force baseline alignment for Title and Rank
-              const titles = block.querySelectorAll('h3, span');
-              titles.forEach((t: any) => {
-                t.style.lineHeight = '1.1'; 
-                t.style.display = 'inline-block';
-              });
-            });
+          cards.forEach((card: any) => {
+            // Find the text content container
+            const textContent = card.querySelector('.flex-1.flex.justify-between.items-center');
+            if (textContent) {
+              // 1. Kill the failing flex centering
+              textContent.style.display = 'grid';
+              textContent.style.gridTemplateColumns = '1fr auto';
+              textContent.style.alignContent = 'center'; // Bulletproof Grid Centering
+              textContent.style.height = '100%';
+              textContent.style.paddingTop = '0px';
+              textContent.style.paddingBottom = '0px';
+              textContent.style.marginTop = '0px';
+              textContent.style.marginBottom = '0px';
 
-            // 3. Fix the Tier Block (S+, etc) centering
-            const tierBlocks = container.querySelectorAll('.border-l');
-            tierBlocks.forEach((tier: any) => {
-                tier.style.display = 'flex';
-                tier.style.flexDirection = 'column';
-                tier.style.justifyContent = 'center';
-                tier.style.alignItems = 'center';
-                tier.style.height = '100%';
-            });
+              // 2. Fix the Title/Rank block
+              const titleBlock = textContent.querySelector('.flex-col');
+              if (titleBlock) {
+                titleBlock.style.display = 'flex';
+                titleBlock.style.flexDirection = 'column';
+                titleBlock.style.justifyContent = 'center';
+                titleBlock.style.gap = '2px';
+                
+                // Align Rank and Title text baselines
+                const headingRow = titleBlock.querySelector('.flex.items-center');
+                if (headingRow) {
+                  headingRow.style.display = 'flex';
+                  headingRow.style.alignItems = 'baseline';
+                  headingRow.style.gap = '12px';
+                  
+                  // Reset line-heights to prevent decapatition
+                  const textElements = headingRow.querySelectorAll('h3, span');
+                  textElements.forEach((t: any) => {
+                    t.style.lineHeight = '1.2';
+                    t.style.padding = '0';
+                    t.style.margin = '0';
+                  });
+                }
+              }
+
+              // 3. Fix the Tier Block (S+)
+              const tierBlock = textContent.querySelector('.border-l');
+              if (tierBlock) {
+                tierBlock.style.display = 'flex';
+                tierBlock.style.flexDirection = 'column';
+                tierBlock.style.justifyContent = 'center';
+                tierBlock.style.height = '100%';
+                tierBlock.style.alignItems = 'center';
+              }
+            }
           });
         }
       });
@@ -83,7 +100,7 @@ export const useScreenshot = () => {
               await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
               alert('Copied to clipboard!');
             } catch {
-              alert('Copy failed. Use Download.');
+              alert('Copy failed. Try Download.');
             }
           }
         }, 'image/png', 1.0);
