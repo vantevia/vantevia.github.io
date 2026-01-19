@@ -1,7 +1,6 @@
-
 import { useState, useEffect, useCallback } from 'react';
 
-// --- 1. THE HOOK (formerly useScreenshot.ts) ---
+// --- 1. THE HOOK ---
 declare const html2canvas: any;
 
 export const useScreenshot = () => {
@@ -9,26 +8,60 @@ export const useScreenshot = () => {
 
   const capture = useCallback(async (el: HTMLElement | null, act: 'save' | 'copy', name = 'screenshot.png', scale = 1) => {
     setStatus(act);
-    await new Promise(r => setTimeout(r, 450)); // Wait for render
+    
+    // FIX 1: Explicitly wait for browser to confirm fonts are usable
+    await document.fonts.ready;
+    // FIX 2: Increased delay. Production servers/GitHub Pages load assets slower than local/AI Studio
+    await new Promise(r => setTimeout(r, 700)); 
+    
     if (!el) return setStatus(null);
 
     try {
       const canvas = await html2canvas(el, {
-        useCORS: true, allowTaint: true, backgroundColor: "#0f172a",
-        scale, logging: false, scrollX: -window.scrollX, scrollY: -window.scrollY, removeContainer: true
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#0f172a",
+        scale,
+        logging: false,
+        imageTimeout: 0,
+        // FIX 3: Precise coordinate tracking for GitHub Pages environments
+        scrollX: -window.scrollX,
+        scrollY: -window.scrollY,
+        removeContainer: true,
+        // FIX 4: The most important part. Forces the cloned document to 
+        // reset the vertical alignment math before "painting"
+        onclone: (clonedDoc: any) => {
+          const songs = clonedDoc.querySelectorAll('.flex, .items-center');
+          songs.forEach((item: any) => {
+            item.style.display = 'flex';
+            item.style.alignItems = 'center';
+            item.style.lineHeight = '1'; // Prevents font "leading" from pushing text down
+          });
+        }
       });
 
       if (act === 'save') {
-        const link = document.createElement('a'); link.download = name;
-        link.href = canvas.toDataURL('image/png', 1.0); link.click();
+        const link = document.createElement('a'); 
+        link.download = name;
+        link.href = canvas.toDataURL('image/png', 1.0); 
+        link.click();
       } else {
         canvas.toBlob(async (blob: any) => {
-          try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); alert('Copied to clipboard!'); }
-          catch { alert('Copy failed. Use download.'); }
+          if (!blob) return;
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            alert('Copied to clipboard!');
+          } catch {
+            alert('Copy failed. Use download instead.');
+          }
         }, 'image/png', 1.0);
       }
-    } catch (e) { console.error(e); alert('Capture failed.'); } 
-    finally { setStatus(null); }
+    } catch (e) {
+      console.error(e);
+      alert('Capture failed.');
+    } finally {
+      setStatus(null);
+    }
   }, []);
 
   return { isCapturing: !!status, isSaving: status === 'save', isCopying: status === 'copy', capture };
@@ -44,12 +77,22 @@ const Field = ({ label, val, set, min, max, cur, sub, step = "1" }: any) => (
 );
 
 export const ScreenshotModal = ({ isOpen, onClose, onConfirm, action, maxEntries }: any) => {
-  const [scale, setScale] = useState('1'); const [limit, setLimit] = useState('');
+  const [scale, setScale] = useState('1'); 
+  const [limit, setLimit] = useState('');
 
-  useEffect(() => { if (isOpen) { setScale('1'); setLimit(maxEntries ? maxEntries.toString() : ''); } }, [isOpen, maxEntries]);
+  useEffect(() => { 
+    if (isOpen) { 
+      setScale('1'); 
+      setLimit(maxEntries ? maxEntries.toString() : ''); 
+    } 
+  }, [isOpen, maxEntries]);
+
   if (!isOpen) return null;
 
-  const confirm = () => { const l = parseInt(limit); onConfirm(Math.min(1, parseFloat(scale) || 1), !isNaN(l) && l > 0 ? l : undefined); };
+  const confirm = () => { 
+    const l = parseInt(limit); 
+    onConfirm(Math.min(1, parseFloat(scale) || 1), !isNaN(l) && l > 0 ? l : undefined); 
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 rounded-none">
