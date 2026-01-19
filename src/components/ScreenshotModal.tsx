@@ -10,11 +10,11 @@ export const useScreenshot = () => {
     if (!el) return;
     setStatus(act);
     
-    // Save current scroll position
+    // Scroll to top to ensure coordinates are relative to 0
     const scrollPos = window.scrollY;
-    // Force scroll to top - this is the most reliable way to prevent shifting in html2canvas
     window.scrollTo(0, 0);
     
+    // Wait for render/fonts
     await new Promise(r => setTimeout(r, 600));
 
     try {
@@ -25,20 +25,48 @@ export const useScreenshot = () => {
         scale,
         logging: false,
         imageTimeout: 0,
-        // Resetting these to default to fix the "Left Side" rendering issue
         scrollX: 0,
         scrollY: 0,
-        // This forces the vertical centering logic to re-calculate inside the capture engine
+        // --- THE ACTUAL FIX FOR VERTICAL CENTERING ---
         onclone: (clonedDoc: any) => {
-          // Find the text containers that are being shifted
-          const textContainers = clonedDoc.querySelectorAll('.flex-1.flex.justify-between.items-center');
-          textContainers.forEach((container: any) => {
-            // Force the container to fill the height and center vertically
+          // 1. Target the main content wrapper
+          const containers = clonedDoc.querySelectorAll('.flex-1.flex.justify-between.items-center');
+          
+          containers.forEach((container: any) => {
+            // Force standard flex centering
             container.style.display = 'flex';
-            container.style.height = '100%';
+            container.style.flexDirection = 'row';
             container.style.alignItems = 'center';
-            container.style.paddingTop = '0';
-            container.style.paddingBottom = '0';
+            container.style.justifyContent = 'space-between';
+            container.style.height = '100%';
+            
+            // 2. Fix the text block (Title, Artist, Tags)
+            // html2canvas often adds "leading" (space) to text which causes the sink.
+            // We force line-height to 1 to strip that empty space.
+            const textBlocks = container.querySelectorAll('.flex-col');
+            textBlocks.forEach((block: any) => {
+              block.style.display = 'flex';
+              block.style.flexDirection = 'column';
+              block.style.justifyContent = 'center';
+              block.style.height = '100%';
+              
+              // Force baseline alignment for Title and Rank
+              const titles = block.querySelectorAll('h3, span');
+              titles.forEach((t: any) => {
+                t.style.lineHeight = '1.1'; 
+                t.style.display = 'inline-block';
+              });
+            });
+
+            // 3. Fix the Tier Block (S+, etc) centering
+            const tierBlocks = container.querySelectorAll('.border-l');
+            tierBlocks.forEach((tier: any) => {
+                tier.style.display = 'flex';
+                tier.style.flexDirection = 'column';
+                tier.style.justifyContent = 'center';
+                tier.style.alignItems = 'center';
+                tier.style.height = '100%';
+            });
           });
         }
       });
@@ -64,7 +92,6 @@ export const useScreenshot = () => {
       console.error(e);
       alert('Capture failed.');
     } finally {
-      // Return user to their original scroll position
       window.scrollTo(0, scrollPos);
       setStatus(null);
     }
@@ -110,7 +137,7 @@ export const ScreenshotModal = ({ isOpen, onClose, onConfirm, action, maxEntries
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-none shadow-2xl p-6 w-full max-w-sm animate-in fade-in zoom-in duration-200">
-        <h3 className="text-xl font-bold text-white mb-1 tracking-tight">Capture Settings</h3>
+        <h3 className="text-xl font-bold text-white mb-1 tracking-tight uppercase">Capture Settings</h3>
         <p className="text-sm text-slate-400 mb-6 font-medium">Configure screenshot options.</p>
         <div className="space-y-6">
           <Field label="Scale (Max 1.0)" val={scale} set={setScale} min="0.1" max="1" step="0.1" cur={`${scale}x`} sub="Higher scale improves quality." />
