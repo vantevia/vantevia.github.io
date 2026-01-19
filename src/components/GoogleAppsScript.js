@@ -13,6 +13,17 @@ const CONFIG = {
 };
 
 function doPost(e) {
+  // Verify authentication token
+  const providedToken = e.postData.parameters?.token || e.parameter?.token;
+  const expectedToken = "ijustgotthegrimaceshake99";
+  
+  if (providedToken !== expectedToken) {
+    return ContentService.createTextOutput(JSON.stringify({ 
+      status: 'error', 
+      message: 'Unauthorized: Invalid token' 
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
   // Use lock to prevent concurrent overwrites
   const lock = LockService.getScriptLock();
   // Wait up to 30 seconds for other processes to finish
