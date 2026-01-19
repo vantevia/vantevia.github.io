@@ -120,10 +120,22 @@ export const fetchDemonList = async () => {
 
 export const saveSongData = (songs: RawSong[]) => fetch(SHEETS_CONFIG.scriptUrl, {
   method: 'POST', body: JSON.stringify({ action: 'save_songs', data: songs.map((s, i) => ({ "#": (!s.isMain && !s.isUnranked) ? "" : `=ROW(A${i+2})-1`, "SONG": s.title, "ARTIST": s.artist, "REMIXER": s.remixer||'', "INST/VOCAL": s.type, "Date Added": s.dateAdded||'', "TIER": s.tier, "MAIN": s.isMain?'Y':s.isUnranked?'U':'N', "BACKGROUND": s.backgroundColor||'', "DURATION": s.duration||'', "LINK": s.link||'', "IMAGE": s.imageUrl })) })
-}).then(r => r.json());
+}).then(r => r.json()).then(result => {
+  if (result.status === 'error' && result.message.includes('authenticate')) {
+    window.open(SHEETS_CONFIG.scriptUrl, 'auth', 'width=500,height=600');
+    throw new Error('Please authenticate in the popup window, then try again');
+  }
+  return result;
+});
 
 export const appendChangelog = (log: string[]) => log.length && fetch(SHEETS_CONFIG.scriptUrl, {
   method: 'POST', body: JSON.stringify({ action: 'append_changelog', content: `${new Date().getMonth()+1}/${new Date().getDate()} Changelog\n${log.join('\n')}` })
+}).then(r => r.json()).then(result => {
+  if (result.status === 'error' && result.message.includes('authenticate')) {
+    window.open(SHEETS_CONFIG.scriptUrl, 'auth', 'width=500,height=600');
+    throw new Error('Please authenticate in the popup window, then try again');
+  }
+  return result;
 });
 
 // --- HISTORY PARSING ---

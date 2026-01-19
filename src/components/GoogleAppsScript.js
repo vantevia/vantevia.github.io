@@ -13,11 +13,20 @@ const CONFIG = {
 };
 
 function doPost(e) {
-  // Check if user is authenticated and authorized
   const user = Session.getEffectiveUser();
+  const userEmail = user.getEmail();
+  
+  // AnonymousUser means they're not authenticated
+  if (userEmail === 'unknown') {
+    return ContentService.createTextOutput(JSON.stringify({ 
+      status: 'error', 
+      message: 'You must authenticate first. Opening authentication...' 
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
   const authorizedEmail = "mapacore4152@gmail.com";
   
-  if (user.getEmail() !== authorizedEmail) {
+  if (userEmail !== authorizedEmail) {
     return ContentService.createTextOutput(JSON.stringify({ 
       status: 'error', 
       message: 'Unauthorized: Only ' + authorizedEmail + ' can edit' 
