@@ -127,6 +127,10 @@ export default function App() {
     )
   };
 
+  const handleUpdateSetting = useCallback((key: string, val: any) => {
+    setSettings(prev => ({ ...prev, [key]: val }));
+  }, []);
+
   return (
     <div className="min-h-screen text-white p-0 flex flex-col items-stretch">
       {!isCapturing && (
@@ -141,7 +145,21 @@ export default function App() {
           />
           <div className="relative z-10 max-w-[1600px] mx-auto px-4 md:px-8 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex-1 w-full">
-              <TopBar viewState={viewState} settings={settings} demonListType={demonListType} dataSnapshots={data.snapshots} uniqueArtists={uniqueArtists} isSaving={isSaving} isCopying={isCopying} onNavTo={(m: any) => { setViewState({ active: m, selectedHistorySong: null }); window.scrollTo({ top: 0, behavior: 'instant' }); }} onSetDemonListType={setDemonListType} onSetSettings={setSettings} onRequestCapture={(a: any) => setCaptureModal({ isOpen: true, action: a })} onExportCsv={() => downloadCsv('ranking.csv', ['Rank', 'Title', 'Artist', 'Tier'], displayedSongs.map(s => [s.rank, s.title, s.artist, s.tier]))} onClearHistorySelection={() => selSong(null)} />
+              <TopBar 
+                viewState={viewState} 
+                settings={settings} 
+                demonListType={demonListType} 
+                dataSnapshots={data.snapshots} 
+                uniqueArtists={uniqueArtists} 
+                isSaving={isSaving} 
+                isCopying={isCopying} 
+                onNavTo={(m: any) => { setViewState({ active: m, selectedHistorySong: null }); window.scrollTo({ top: 0, behavior: 'instant' }); }} 
+                onSetDemonListType={setDemonListType} 
+                onSetSettings={handleUpdateSetting} 
+                onRequestCapture={(a: any) => setCaptureModal({ isOpen: true, action: a })} 
+                onExportCsv={() => downloadCsv('ranking.csv', ['Rank', 'Title', 'Artist', 'Tier'], displayedSongs.map(s => [s.rank, s.title, s.artist, s.tier]))} 
+                onClearHistorySelection={() => selSong(null)} 
+              />
             </div>
             <BrandedTitle />
           </div>
