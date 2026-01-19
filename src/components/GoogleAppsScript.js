@@ -15,7 +15,7 @@ const CONFIG = {
 function doPost(e) {
   // Verify authentication token
   const providedToken = e.postData.parameters?.token || e.parameter?.token;
-  const expectedToken = "ijustgotthegrimaceshake99";
+  const expectedToken = "skibidi";
   
   if (providedToken !== expectedToken) {
     return ContentService.createTextOutput(JSON.stringify({ 
