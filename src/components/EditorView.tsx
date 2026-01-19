@@ -89,34 +89,34 @@ export const EditorView: React.FC<{ songs: RawSong[]; onSaveSuccess: () => void 
     ];
 
     return (
-        <div className="w-full max-w-[98vw] mx-auto bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl flex flex-col h-[90vh]">
-            <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex justify-between items-center shrink-0">
-                <div className="flex items-center gap-6">
+        <div className="w-full max-w-[98vw] mx-auto bg-slate-900 border border-slate-700 rounded-none overflow-hidden shadow-2xl flex flex-col h-[90vh]">
+            <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex justify-between items-center shrink-0 rounded-none">
+                <div className="flex items-center gap-6 rounded-none">
                     <div><h2 className="text-2xl font-bold text-white">Data Editor</h2><p className="text-sm text-slate-400">Editing {localSongs.length} entries.</p></div>
-                    {hIdx > 0 && <button onClick={undo} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded text-sm font-bold border border-slate-600 transition-colors">↩ Undo</button>}
+                    {hIdx > 0 && <button onClick={undo} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-none text-sm font-bold border border-slate-600 transition-colors">↩ Undo</button>}
                 </div>
-                <button onClick={save} disabled={ui.saving} className={`px-6 py-2 text-white font-bold rounded shadow-lg ${ui.saving ? 'bg-sky-700' : 'bg-sky-600 hover:bg-sky-500'}`}>Save to Sheets</button>
+                <button onClick={save} disabled={ui.saving} className={`px-6 py-2 text-white font-bold rounded-none shadow-lg ${ui.saving ? 'bg-sky-700' : 'bg-sky-600 hover:bg-sky-500'}`}>Save to Sheets</button>
             </div>
 
-            {(ui.err || ui.msg) && <div className={`px-6 py-2 border-b font-medium ${ui.err ? 'bg-red-900/50 text-red-200 border-red-800/50' : 'bg-emerald-900/50 text-emerald-200 border-emerald-800/50'}`}>{ui.err || ui.msg}</div>}
+            {(ui.err || ui.msg) && <div className={`px-6 py-2 border-b font-medium rounded-none ${ui.err ? 'bg-red-900/50 text-red-200 border-red-800/50' : 'bg-emerald-900/50 text-emerald-200 border-emerald-800/50'}`}>{ui.err || ui.msg}</div>}
 
-            <div className="flex-1 flex overflow-hidden">
-                <div className="flex-1 overflow-auto">
-                    <table className="w-full text-left border-collapse min-w-[2100px]">
-                        <thead className="bg-slate-800 sticky top-0 z-20 shadow-md">
-                            <tr>{COLUMNS.map(c => <th key={c.h} className={`p-3 border-r border-slate-700 text-center text-gray-300 text-sm font-bold tracking-wider ${c.w}`}>{c.h}</th>)}</tr>
+            <div className="flex-1 flex overflow-hidden rounded-none">
+                <div className="flex-1 overflow-auto rounded-none">
+                    <table className="w-full text-left border-collapse min-w-[2100px] rounded-none">
+                        <thead className="bg-slate-800 sticky top-0 z-20 shadow-md rounded-none">
+                            <tr>{COLUMNS.map(c => <th key={c.h} className={`p-3 border-r border-slate-700 text-center text-gray-300 text-sm font-bold tracking-wider rounded-none ${c.w}`}>{c.h}</th>)}</tr>
                         </thead>
-                        <tbody className="text-gray-200 divide-y divide-slate-800">
+                        <tbody className="text-gray-200 divide-y divide-slate-800 rounded-none">
                             {localSongs.map((s) => (
-                                <tr key={s.title} className="hover:bg-slate-800/40 transition-colors">
+                                <tr key={s.title} className="hover:bg-slate-800/40 transition-colors rounded-none">
                                     {COLUMNS.map(c => (
-                                        <td key={c.h} className="p-1 border-r border-slate-800 align-middle">
+                                        <td key={c.h} className="p-1 border-r border-slate-800 align-middle rounded-none">
                                             {c.h === '#' ? (
                                                 (s.isUnranked || !s.isMain) ? <span className="block text-center text-slate-600 font-bold">-</span> : 
                                                 <input key={s.title + s.rank} type="text" inputMode="numeric" defaultValue={s.rank}
                                                     onBlur={e => handleRankMove(s.title, e.target.value)} 
                                                     onKeyDown={e => e.key === 'Enter' && (e.target as any).blur()} 
-                                                    className="w-full bg-transparent text-center font-mono font-bold text-sky-400 outline-none" 
+                                                    className="w-full bg-transparent text-center font-mono font-bold text-sky-400 outline-none rounded-none" 
                                                 />
                                             ) : c.h === 'Main' ? (
                                                 <select value={s.isMain ? 'Y' : s.isUnranked ? 'U' : 'N'} 
@@ -125,19 +125,19 @@ export const EditorView: React.FC<{ songs: RawSong[]; onSaveSuccess: () => void 
                                                         n[idx] = { ...n[idx], isMain: v === 'Y', isUnranked: v === 'U' };
                                                         commit(`${s.title} status: ${v}`, n.map((q, qidx) => ({ ...q, rank: qidx + 1 })));
                                                     }} 
-                                                    className={`w-full bg-transparent p-2 outline-none font-bold text-center ${s.isMain ? 'text-green-400' : s.isUnranked ? 'text-yellow-400' : 'text-slate-500'}`}
+                                                    className={`w-full bg-transparent p-2 outline-none font-bold text-center rounded-none ${s.isMain ? 'text-green-400' : s.isUnranked ? 'text-yellow-400' : 'text-slate-500'}`}
                                                 >
                                                     <option value="Y" className="bg-slate-800 text-green-400">Y</option><option value="N" className="bg-slate-800 text-slate-400">N</option><option value="U" className="bg-slate-800 text-yellow-400">U</option>
                                                 </select>
                                             ) : c.o ? (
-                                                <select value={(s as any)[c.f!] || ''} onChange={e => updProp(s.title, c.f as any, e.target.value)} className="w-full bg-transparent p-2 outline-none text-center">
-                                                    {c.o.map(o => <option key={o} value={o} className="bg-slate-800">{o}</option>)}
+                                                <select value={(s as any)[c.f!] || ''} onChange={e => updProp(s.title, c.f as any, e.target.value)} className="w-full bg-transparent p-2 outline-none text-center rounded-none">
+                                                    {c.o.map(o => <option key={o} value={o} className="bg-slate-800 rounded-none">{o}</option>)}
                                                 </select>
                                             ) : (
                                                 <input key={s.title + (s as any)[c.f!]} type="text" defaultValue={(s as any)[c.f!] || ''} 
                                                     onBlur={(e) => { if(e.target.value !== (s as any)[c.f!]) updProp(s.title, c.f as any, e.target.value); }} 
                                                     onKeyDown={e => e.key === 'Enter' && (e.target as any).blur()} 
-                                                    className={`w-full bg-transparent p-2 outline-none ${c.b ? 'font-bold text-white' : ''} ${c.h === 'Duration' || c.h === 'Date Added' ? 'text-center' : ''}`} 
+                                                    className={`w-full bg-transparent p-2 outline-none rounded-none ${c.b ? 'font-bold text-white' : ''} ${c.h === 'Duration' || c.h === 'Date Added' ? 'text-center' : ''}`} 
                                                 />
                                             )}
                                         </td>
@@ -148,16 +148,16 @@ export const EditorView: React.FC<{ songs: RawSong[]; onSaveSuccess: () => void 
                     </table>
                 </div>
 
-                <div className="w-96 border-l border-slate-700 bg-slate-800/30 flex flex-col shrink-0">
-                    <div className="p-4 bg-slate-800/80 border-b border-slate-700 flex justify-between items-center">
-                        <span className="font-bold text-sm text-slate-300 tracking-wider">Session Log</span>
-                        <label className="flex items-center gap-2 cursor-pointer text-xs text-sky-400 font-bold"><input type="checkbox" checked={ui.auto} onChange={e => setUi({ ...ui, auto: e.target.checked })} className="accent-sky-500" /> Auto-log</label>
+                <div className="w-96 border-l border-slate-700 bg-slate-800/30 flex flex-col shrink-0 rounded-none">
+                    <div className="p-4 bg-slate-800/80 border-b border-slate-700 flex justify-between items-center rounded-none">
+                        <span className="font-bold text-sm text-slate-300 tracking-wider uppercase">Session Log</span>
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-sky-400 font-bold rounded-none"><input type="checkbox" checked={ui.auto} onChange={e => setUi({ ...ui, auto: e.target.checked })} className="accent-sky-500 rounded-none" /> Auto-log</label>
                     </div>
-                    <div className="p-3 bg-slate-900/50 border-b border-slate-700/50">
-                        <div className="flex justify-between items-center mb-1"><span className="text-[10px] font-bold text-slate-500 uppercase">Last Change</span>{!ui.auto && ui.last && <button onClick={() => push(localSongs, [{ id: Date.now(), text: `${getTime()}: ${ui.last}` }, ...log])} className="text-[10px] bg-sky-600/30 text-sky-300 px-2 py-0.5 rounded border border-sky-500/30 font-bold transition-colors hover:bg-sky-600/50">Add to Log</button>}</div>
-                        <div className="text-xs text-slate-300 font-mono break-words">{ui.last || <span className="text-slate-600 italic">No recent changes</span>}</div>
+                    <div className="p-3 bg-slate-900/50 border-b border-slate-700/50 rounded-none">
+                        <div className="flex justify-between items-center mb-1 rounded-none"><span className="text-[10px] font-bold text-slate-500 uppercase">Last Change</span>{!ui.auto && ui.last && <button onClick={() => push(localSongs, [{ id: Date.now(), text: `${getTime()}: ${ui.last}` }, ...log])} className="text-[10px] bg-sky-600/30 text-sky-300 px-2 py-0.5 rounded-none border border-sky-500/30 font-bold transition-colors hover:bg-sky-600/50">Add to Log</button>}</div>
+                        <div className="text-xs text-slate-300 font-mono break-words rounded-none">{ui.last || <span className="text-slate-600 italic rounded-none">No recent changes</span>}</div>
                     </div>
-                    <div className="flex-1 overflow-auto p-4 space-y-3">{log.map(l => <div key={l.id} className="text-sm text-white border-b border-slate-700/50 pb-2 font-mono">{l.text}</div>)}</div>
+                    <div className="flex-1 overflow-auto p-4 space-y-3 rounded-none">{log.map(l => <div key={l.id} className="text-sm text-white border-b border-slate-700/50 pb-2 font-mono rounded-none">{l.text}</div>)}</div>
                 </div>
             </div>
         </div>

@@ -1,85 +1,72 @@
+import { useState } from 'react';
+import { formatDate } from '../utils';
 
-import React from 'react';
-import { SettingsMenu } from './SettingsMenu';
-import { ViewMode, DemonListType, DisplaySettings, Snapshot, SongHistory } from '../utils';
+// --- HELPERS ---
+const Tgl = ({ l, s, c, o, d }: any) => (
+    <div className="flex items-center justify-between py-2">
+        <span className={`text-sm font-semibold ${d ? 'text-gray-500' : 'text-gray-300'}`}>{l}{s && <span className="block text-[10px] font-normal text-gray-500">{s}</span>}</span>
+        <button onClick={() => !d && o(!c)} className={`relative h-5 w-10 rounded-none transition ${c ? 'bg-sky-500' : 'bg-slate-700'} ${d ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-600'}`}><span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-none bg-white transition ${c ? 'translate-x-5' : ''}`} /></button>
+    </div>
+);
+const Sel = ({ l, v, o, opts }: any) => (
+    <div className="flex flex-col gap-1 mt-3"><span className="text-sm text-gray-300 font-semibold">{l}</span><select value={v} onChange={e => o(e.target.value)} className="bg-slate-800 border border-slate-600 rounded-none p-1.5 text-xs text-white outline-none focus:border-sky-500">{opts.map((op: any) => <option key={op.val} value={op.val}>{op.label}</option>)}</select></div>
+);
+const Btn = ({ l, a, c }: any) => <button onClick={c} className={`flex-1 px-2 py-1 text-[10px] font-bold rounded-none border ${a ? 'bg-sky-600 border-sky-500' : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-gray-400'}`}>{l}</button>;
 
-interface SidebarProps {
-    viewState: { active: ViewMode; selectedHistorySong: SongHistory | null };
-    settings: DisplaySettings;
-    demonListType: DemonListType;
-    dataSnapshots: Snapshot[];
-    uniqueArtists: string[];
-    isSaving: boolean;
-    isCopying: boolean;
-    onNavTo: (mode: ViewMode) => void;
-    onSetDemonListType: (type: DemonListType) => void;
-    onSetSettings: (s: React.SetStateAction<DisplaySettings>) => void;
-    onRequestCapture: (action: 'save' | 'copy') => void;
-    onExportCsv: () => void;
-    onClearHistorySelection: () => void;
-}
+export const Sidebar = (p: any) => {
+    const { viewState: vs, settings: s, demonListType: dlt, dataSnapshots: snaps, uniqueArtists: art, onNavTo: nav, onSetDemonListType: setDlt, onSetSettings: setS } = p;
+    const [open, setOpen] = useState(false);
+    const btns: any = { visual: 'Revamp', stats: 'Statistics', comparison: 'Comparisons', 'history-top1': 'Top 1 History', 'history-changelog': 'Changelog' };
 
-export const Sidebar: React.FC<SidebarProps> = (props) => {
-    const { viewState, settings, demonListType, dataSnapshots, uniqueArtists, isSaving, isCopying, onNavTo, onSetDemonListType, onSetSettings, onRequestCapture, onExportCsv, onClearHistorySelection } = props;
-
-    const labels: Partial<Record<ViewMode, string>> = { visual: 'Revamp', stats: 'Statistics', comparison: 'Comparisons', 'history-top1': 'Top 1 History', 'history-changelog': 'Changelog' };
-
-    const NavBtn = ({ mode, label, color = "sky" }: { mode: ViewMode, label: string, color?: string }) => {
-        const active = viewState.active === mode && !viewState.selectedHistorySong;
-        return (
-            <button onClick={() => onNavTo(mode)} className={`w-full text-left px-4 py-3 text-sm font-bold transition-colors ${active ? `bg-${color}-600 text-white` : 'text-slate-400 hover:bg-slate-800'}`}>
-                {label}
-            </button>
-        );
-    };
-
-    const Section = ({ title }: { title: string }) => (
-        <div className="p-4 border-y border-slate-700/50 bg-slate-800/40 font-bold text-gray-200 text-xs tracking-tight">{title}</div>
+    const NavBtn = ({ m, l, c = "sky" }: any) => (
+        <button onClick={() => nav(m)} className={`px-4 py-2 text-xs font-bold transition-all border-b-2 ${vs.active === m && !vs.selectedHistorySong ? `border-${c}-500 text-white bg-${c}-500/10` : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}>{l}</button>
     );
 
+    // Settings Data
+    const revOpts = snaps?.map((v: any, i: number) => ({ label: `${formatDate(v.date)} - ${v.revisionLabel || v.date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`, val: i })).reverse() || [];
+    const artOpts = [{ val: 'all', label: 'All Artists' }, ...(art || []).map((a: any) => ({ val: a, label: a }))];
+    const displayToggles = [ { k: 'showArtist', l: 'Show Artist' }, { k: 'showVisualMetadata', l: 'Show Metadata', d: s.layoutMode !== 'standard' }, { k: 'useTierBackground', l: 'Tier Backgrounds', d: s.showRevisionHistory }, { k: 'useTierColorsForBorder', l: 'Tier Borders', d: s.showRevisionHistory }, { k: 'useCustomColors', l: 'Custom Colors', d: !s.useTierBackground || s.showRevisionHistory }, { k: 'showDetails', l: 'Show Details' }, { k: 'hideTierText', l: 'Hide Tier Text' }, { k: 'showScore', l: 'Show Tier Scores' }, { k: 'rankDisplayMode', l: 'Group Rank', v: s.rankDisplayMode === 'group', set: (v: any) => setS('rankDisplayMode', v ? 'group' : 'original'), d: s.songTypeFilter === 'all' && s.artistFilter === 'all' && s.sortMode === 'rank' } ];
+
     return (
-        <aside className="w-full md:w-64 shrink-0 flex flex-col gap-4 sticky top-6 z-10 md:max-h-[calc(100vh-3rem)] md:overflow-y-auto pr-1">
-            <div className="bg-slate-900/40 backdrop-blur-md border border-slate-700/50 rounded-xl overflow-hidden shadow-xl shrink-0">
-                {(['visual', 'stats', 'comparison'] as ViewMode[]).map(m => <NavBtn key={m} mode={m} label={labels[m]!} />)}
-                
-                <button onClick={() => { onNavTo('demonlist'); if(!['main','extended','all'].includes(demonListType)) onSetDemonListType('main'); }} 
-                    className={`w-full text-left px-4 py-3 text-sm font-bold transition-colors ${viewState.active === 'demonlist' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-                    Verified Levels List
-                </button>
-                
-                {viewState.active === 'demonlist' && (
-                    <div className="flex flex-col bg-slate-900/30 pb-2">
-                        {[ {l:'Main List', v:'main'}, {l:'Extended List', v:'extended'}, {l:'Full List', v:'all'} ].map(t => (
-                            <button key={t.v} onClick={() => { onSetDemonListType(t.v as any); window.scrollTo({top:0, behavior:'instant'}); }} 
-                                className={`w-full text-left pl-8 pr-4 py-2 text-xs font-bold transition-colors border-l-2 ${demonListType === t.v ? 'border-sky-500 text-sky-400 bg-slate-800/50' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-                                {t.l}
-                            </button>
-                        ))}
+        <nav className="w-full flex flex-col gap-2">
+            {/* Top Navigation Bar */}
+            <div className="flex flex-wrap items-center gap-2">
+                <div className="flex bg-slate-900/40 border border-slate-700/50 rounded-none overflow-hidden">
+                    {['visual', 'stats', 'comparison'].map(m => <NavBtn key={m} m={m} l={btns[m]} />)}
+                    <div className="relative group">
+                        <button onClick={() => { nav('demonlist'); if(!['main','extended','all'].includes(dlt)) setDlt('main'); }} className={`px-4 py-2 text-xs font-bold transition-all border-b-2 ${vs.active === 'demonlist' ? 'border-sky-500 text-white bg-sky-500/10' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}>Verified Levels</button>
+                        {vs.active === 'demonlist' && <div className="absolute top-full left-0 mt-1 bg-slate-900 border border-slate-700 shadow-2xl flex flex-col z-[60]">{['Main', 'Extended', 'Full'].map(t => <button key={t} onClick={() => setDlt(t.toLowerCase() === 'full' ? 'all' : t.toLowerCase())} className={`w-40 text-left px-4 py-2 text-[10px] font-bold ${dlt === (t.toLowerCase()==='full'?'all':t.toLowerCase()) ? 'text-sky-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300'}`}>{t} List</button>)}</div>}
                     </div>
-                )}
-
-                <Section title="History" />
-                {(['history-top1', 'history-changelog'] as ViewMode[]).map(m => <NavBtn key={m} mode={m} label={labels[m]!} />)}
-                
-                <Section title="Admin" />
-                <NavBtn mode="editor" label="Data Editor" color="purple" />
+                </div>
+                <div className="flex bg-slate-900/40 border border-slate-700/50 rounded-none overflow-hidden">{['history-top1', 'history-changelog'].map(m => <NavBtn key={m} m={m} l={btns[m]} />)}</div>
+                <div className="flex bg-slate-900/40 border border-slate-700/50 rounded-none overflow-hidden"><NavBtn m="editor" l="Data Editor" c="purple" /></div>
+                <div className="ml-auto flex gap-2">
+                    <button onClick={() => setOpen(!open)} className={`px-4 py-2 text-xs font-bold rounded-none border transition-all ${open ? 'bg-sky-600 border-sky-500 text-white' : 'bg-slate-900/40 border-slate-700/50 text-slate-400 hover:text-slate-200'}`}>Settings</button>
+                    <button onClick={vs.selectedHistorySong ? p.onClearHistorySelection : p.onExportCsv} className={`px-4 py-2 text-xs font-bold rounded-none border transition-all ${vs.selectedHistorySong ? 'bg-slate-800 border-slate-700 text-gray-300' : 'bg-emerald-600/20 border-emerald-600/30 text-emerald-400 hover:bg-emerald-600/30'}`}>{vs.selectedHistorySong ? '← Back' : 'Export CSV'}</button>
+                </div>
             </div>
 
-            <SettingsMenu 
-                settings={settings} 
-                onSettingChange={(k, v) => onSetSettings(p => ({ ...p, [k]: v }))} 
-                onSave={() => onRequestCapture('save')} isSaving={isSaving} 
-                onCopy={() => onRequestCapture('copy')} isCopying={isCopying} 
-                snapshots={dataSnapshots}
-                uniqueArtists={uniqueArtists}
-            />
-
-            <div className="bg-slate-900/40 backdrop-blur-md border border-slate-700/50 rounded-xl p-2 shrink-0">
-                <button onClick={viewState.selectedHistorySong ? onClearHistorySelection : onExportCsv} 
-                    className={`w-full px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${viewState.selectedHistorySong ? 'text-gray-300 hover:bg-slate-700 flex gap-2' : 'text-emerald-400 hover:bg-emerald-900/20'}`}>
-                    {viewState.selectedHistorySong ? '← Back' : 'Export CSV'}
-                </button>
-            </div>
-        </aside>
+            {/* Settings Overlay */}
+            {open && <div className="absolute top-full left-0 right-0 mt-2 z-50 px-4 md:px-8 max-h-[80vh] overflow-y-auto"><div className="max-w-[1600px] mx-auto bg-slate-950 border border-slate-800 shadow-2xl p-6 flex flex-col gap-6"><div className="flex justify-between items-center mb-2"><h3 className="text-sm font-black tracking-widest text-sky-400">Settings</h3><button onClick={() => setOpen(false)} className="text-slate-500 hover:text-white">✕</button></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {/* Column 1: Modes */}
+                    <div className="flex flex-col gap-4"><h3 className="text-sm font-black text-slate-400 border-b border-slate-800 pb-1">Modes & Revisions</h3><div className="divide-y divide-slate-800/50">
+                        <Tgl l="Show All Songs" s="Include removed/legacy" c={s.showAllSongs} o={(v: any) => setS('showAllSongs', v)} d={s.showRevisionHistory} /><Tgl l="Revision History" c={s.showRevisionHistory} o={(v: any) => setS('showRevisionHistory', v)} />
+                        {s.showRevisionHistory && <div className="pb-2 space-y-3"><Sel l="Revision" v={s.selectedRevisionIndex} o={(v: any) => setS('selectedRevisionIndex', +v)} opts={revOpts} />{['Sort By', 'Main Rank'].map((t, i) => { const k = i ? 'revisionMainRankMode' : 'revisionSortMode'; return <div key={k} className="flex flex-col gap-1"><span className="text-[10px] text-gray-400 font-bold">{t}</span><div className="flex gap-1"><Btn l="Rev #" a={s[k] === 'revision'} c={() => setS(k, 'revision')} /><Btn l="Curr #" a={s[k] === 'current'} c={() => setS(k, 'current')} /></div></div>; })}<div className="space-y-1"><span className="text-[10px] text-gray-400 font-bold">Columns</span>{['Current', 'Rel. Hist', 'Rel. Curr'].map((l, i) => { const k = ['showRevisionCurrentRank', 'showRevisionRelativeHistoricalRank', 'showRevisionRelativeCurrentRank'][i]; return <Tgl key={k} l={`Show ${l} #`} c={s[k]} o={(v: any) => setS(k, v)} />; })}</div></div>}
+                    </div></div>
+                    {/* Column 2: Display */}
+                    <div className="flex flex-col gap-4"><h3 className="text-sm font-black text-slate-400 border-b border-slate-800 pb-1">Display</h3>
+                        <Sel l="Layout Mode" v={s.layoutMode} o={(v: any) => setS('layoutMode', v)} opts={[{ val: 'standard', label: 'Standard' }, { val: 'compact', label: 'Compact' }, { val: 'grid', label: 'Grid' }]} />
+                        <div className="divide-y divide-slate-800/50 mt-2">{displayToggles.map((t: any) => <Tgl key={t.k} l={t.l} c={t.v ?? s[t.k]} o={t.set ?? ((v: any) => setS(t.k, v))} d={t.d} />)}</div>
+                    </div>
+                    {/* Column 3: Filters */}
+                    <div className="flex flex-col gap-4"><h3 className="text-sm font-black text-slate-400 border-b border-slate-800 pb-1">Filters & Capture</h3>
+                        <Sel l="Sort Order" v={s.sortMode} o={(v: any) => setS('sortMode', v)} opts={[{ val: 'rank', label: 'By Rank' }, { val: 'title', label: 'Alphabetical' }, { val: 'date', label: 'Date Added' }]} />
+                        <div className="flex flex-col gap-1"><span className="text-sm text-gray-300 font-semibold">History Since</span><input type="date" value={s.historyFilterDate.toISOString().split('T')[0]} onChange={e => setS('historyFilterDate', new Date(e.target.value + 'T00:00:00'))} className="bg-slate-800 border border-slate-600 rounded-none p-1.5 text-xs text-white outline-none" /></div>
+                        <Sel l="Song Type" v={s.songTypeFilter} o={(v: any) => setS('songTypeFilter', v)} opts={[{ val: 'all', label: 'All Types' }, { val: 'Vocal', label: 'Vocal' }, { val: 'Instrumental', label: 'Instrumental' }]} /><Sel l="Artist" v={s.artistFilter} o={(v: any) => setS('artistFilter', v)} opts={artOpts} /><Sel l="Font" v={s.font} o={(v: any) => setS('font', v)} opts={['verdana', 'montserrat', 'orbitron'].map(f => ({ val: f, label: f[0].toUpperCase() + f.slice(1) }))} />
+                        <div className="pt-4 space-y-2"><button onClick={() => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()} className="w-full bg-slate-800 hover:bg-slate-700 text-gray-200 py-2 rounded-none font-semibold text-xs border border-slate-700 transition-colors">Toggle Fullscreen (F)</button><div className="flex gap-2"><button onClick={() => p.onRequestCapture('save')} disabled={p.isSaving || p.isCopying} className="flex-1 bg-sky-600/20 hover:bg-sky-600/40 text-sky-200 py-2 rounded-none font-semibold text-xs border border-sky-600/30 transition-colors disabled:opacity-50">{p.isSaving ? "..." : "Save (S)"}</button><button onClick={() => p.onRequestCapture('copy')} disabled={p.isSaving || p.isCopying} className="flex-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-200 py-2 rounded-none font-semibold text-xs border border-emerald-600/30 transition-colors disabled:opacity-50">{p.isCopying ? "..." : "Copy (⇧C)"}</button></div></div>
+                    </div>
+                </div></div></div>}
+        </nav>
     );
 };

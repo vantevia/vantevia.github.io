@@ -105,7 +105,7 @@ export const fetchSongData = async () => {
     if (r.remixer && r.remixer !== 'N/A') remMap.set(n, r.remixer);
     return {
       title: r.song, artist: r.artist || 'N/A', remixer: r.remixer, type: r['inst/vocal'] || 'Vocal',
-      dateAdded: parseExcelDate(r['date added']), tier: r.tier || 'B-', rank: parseInt(r['#'] || r.rank) || (i + 1),
+      dateAdded: parseExcelDate(r['date added']), tier: r.tier || undefined, rank: parseInt(r['#'] || r.rank) || (i + 1),
       imageUrl: img || 'https://via.placeholder.com/128x72.png?text=No+Image',
       backgroundColor: r.background, link: r.link || r.url, duration: r.duration,
       isMain: (r.main || '').toUpperCase() === 'Y', isUnranked: (r.main || '').toUpperCase() === 'U'
@@ -174,9 +174,24 @@ export const parseHistoryData = (text: string, artMap: Map<string, string>) => {
 
 const applyChangelog = (base: Snapshot, log: string, map: Map<string, string>): Snapshot[] => {
   const lines = log.split('\n').map(l => l.trim()).filter(Boolean);
-  let date = new Date(base.date), curSongs = base.songs.map(s => ({ ...s })), rev = 1;
-  const dMatch = lines[0].match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/);
-  if (dMatch) { const pd = new Date(Date.parse(dMatch[0] + '/' + base.date.getFullYear())); if (!isNaN(pd.getTime())) date = pd; }
+  let date = new Date(base.date);
+  let curSongs = base.songs.map(s => ({ ...s })), rev = 1;
+  
+  const dMatch = lines[0].match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);
+  if (dMatch) {
+    const m = parseInt(dMatch[1]) - 1;
+    const d = parseInt(dMatch[2]);
+    let y = dMatch[3] ? parseInt(dMatch[3]) : base.date.getFullYear();
+    if (dMatch[3] && y < 100) y += 2000;
+    
+    // Rollover logic: if month is much smaller than base month, assume next year
+    if (!dMatch[3] && m < base.date.getMonth() && base.date.getMonth() >= 9) {
+      y++;
+    }
+    
+    const pd = new Date(y, m, d);
+    if (!isNaN(pd.getTime())) date = pd;
+  }
 
   const snaps: Snapshot[] = [];
   for (const line of lines) {

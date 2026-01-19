@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { RawSong, DemonLevel, DisplaySettings, ViewMode, DemonListType, fetchSongData, fetchDemonList, parseHistoryData, downloadCsv, normalizeTitle, SongHistory } from './utils';
 import { useScreenshot, ScreenshotModal } from './components/ScreenshotModal';
@@ -5,40 +6,25 @@ import { useProcessedData } from './components/useProcessedData';
 import { SongDetailView, TopOneHistoryView, ChangelogView } from './components/HistoryViews';
 import { SongItem, SkeletonTable, SongGrid } from './components/SongItem';
 import { StatsView } from './components/StatsView';
-import { Sidebar } from './components/Sidebar';
+import { Sidebar as TopBar } from './components/Sidebar';
 import { ComparisonView } from './components/ComparisonView';
 import { EditorView } from './components/EditorView';
 
-// --- SHARED HEADER ---
-const SharedHeader = ({ title, subtitle }: { title: string; subtitle: string }) => (
-  <header className="w-full mb-6 grid grid-cols-[1fr_auto_1fr] px-4 md:px-8 z-10">
-    <div className="col-start-2 text-center">
-      <h1 className="text-3xl sm:text-4xl font-bold text-shadow-[0_2px_4px_rgba(0,0,0,0.5)] tracking-wide">{title}</h1>
-      <p className="text-gray-300 text-sm sm:text-base text-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">{subtitle}</p>
-    </div>
-  </header>
+const BrandedTitle = () => (
+  <div className="text-right">
+    <h1 className="text-3xl sm:text-4xl font-black font-orbitron lowercase leading-none" 
+        style={{ 
+          color: 'black', 
+          WebkitTextStroke: '1.2px #00ffff',
+          paintOrder: 'stroke fill'
+        }}>
+      vantevia's lists
+    </h1>
+  </div>
 );
-
-// --- CONFIGURATION ---
-const VIEW_TITLES: Record<string, string> = {
-  visual: 'Revamp',
-  stats: 'Statistics',
-  comparison: 'Comparison',
-  'history-top1': 'Top 1 History',
-  'history-changelog': 'Changelog',
-  editor: 'Data Editor',
-  demonlist: 'Verified Levels List'
-};
-
-const DEMON_LIST_TITLES: Record<string, string> = {
-  main: 'Main List',
-  extended: 'Extended List',
-  all: 'Verified Levels List'
-};
 
 const DEMON_LIST_FILTERS = ["Pointercrate", "Verified", "Verification Progress", "Completed", ">50% Complete", "<50% Complete", "0% Complete"];
 
-// --- MAIN APP ---
 export default function App() {
   const [data, setData] = useState({ rawSongs: [] as RawSong[], thumbnailMap: new Map(), artistMap: new Map(), remixerMap: new Map(), demonLevels: { verified: [] } as Record<string, DemonLevel[]>, snapshots: [] as any[], histories: [] as SongHistory[], loading: true, error: null as string | null });
   
@@ -83,22 +69,10 @@ export default function App() {
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
-  const executeCapture = useCallback(async (scale: string, limit?: number) => {
-    // 1. Set the limit state so the UI renders fewer items
-    if (limit) setCaptureLimit(limit); 
-    
-    setCaptureModal(p => ({ ...p, isOpen: false }));
-
-    // 2. Determine the filename
-    const name = viewState.selectedHistorySong 
-      ? `${viewState.selectedHistorySong.title.replace(/[^a-z0-9]/gi, '_')}_history.png` 
-      : `${viewState.active}.png`;
-
-    // 3. Call capture with EXACTLY 4 arguments
-    // We convert scale to a number using parseFloat
-    await capture(contentRef.current, captureModal.action, name, parseFloat(scale) || 1);
-
-    // 4. Reset the limit so the full list comes back
+  const executeCapture = useCallback(async (scale: number, limit?: number) => {
+    if (limit) setCaptureLimit(limit); setCaptureModal(p => ({ ...p, isOpen: false }));
+    const name = viewState.selectedHistorySong ? `${viewState.selectedHistorySong.title.replace(/[^a-z0-9]/gi, '_')}_history.png` : `${viewState.active}.png`;
+    await capture(contentRef.current, captureModal.action, name, scale);
     setCaptureLimit(null);
   }, [captureModal.action, capture, viewState, viewState.selectedHistorySong]);
 
@@ -109,17 +83,11 @@ export default function App() {
     while (true) { idx += dir; if (idx < 0 || idx >= globalNavigationList.length) break; const h = historyMap.get(normalizeTitle(globalNavigationList[idx].title)); if (h && !globalNavigationList[idx].isSeparator) { selSong(h); break; } }
   };
 
-  const getPageTitle = () => {
-    if (viewState.selectedHistorySong) return 'Song Details';
-    if (viewState.active === 'demonlist') return DEMON_LIST_TITLES[demonListType];
-    return VIEW_TITLES[viewState.active] || viewState.active;
-  };
-
   const VIEWS: any = {
     visual: <SongGrid songs={captureLimit ? displayedSongs.slice(0, captureLimit) : displayedSongs} onSongClick={(s: any) => selSong(historyMap.get(normalizeTitle(s.title)) || null)} isCapturing={isCapturing} {...settings} />,
     stats: <StatsView songs={displayedSongs} isCapturing={isCapturing} />,
     comparison: <ComparisonView allSongs={globalNavigationList} isCapturing={isCapturing} />,
-    'history-top1': <TopOneHistoryView snapshots={data.snapshots} songsHistory={data.histories} maxItems={captureLimit} onSongSelect={selSong} songImageMap={data.thumbnailMap} songRemixerMap={remixerMap} isCapturing={isCapturing} />,
+    'history-top1': <TopOneHistoryView snapshots={data.snapshots} songsHistory={data.histories} maxItems={captureLimit} onSongSelect={selSong} songImageMap={data.thumbnailMap} songRemixerMap={remixerMap} isCapturing={isCapturing} settings={settings} />,
     'history-changelog': <ChangelogView snapshots={data.snapshots} songImageMap={data.thumbnailMap} remixerMap={remixerMap} artistMap={data.artistMap} isCapturing={isCapturing} />,
     editor: <EditorView songs={data.rawSongs} onSaveSuccess={() => window.location.reload()} />,
     demonlist: (
@@ -131,7 +99,7 @@ export default function App() {
                 <button 
                   key={t} 
                   onClick={() => setDemonListType(t as any)} 
-                  className={`px-4 py-2 rounded font-bold text-sm border transition-colors ${demonListType === t ? 'bg-sky-600 text-white border-sky-500' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}`}
+                  className={`px-4 py-2 rounded-none font-bold text-sm border transition-colors ${demonListType === t ? 'bg-sky-600 text-white border-sky-500' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}`}
                 >
                   {t === 'all' ? 'Full List' : `${t.charAt(0).toUpperCase() + t.slice(1)} List`}
                 </button>
@@ -142,7 +110,7 @@ export default function App() {
                 <button 
                   key={f} 
                   onClick={() => setDemonListFilter(f)} 
-                  className={`px-3 py-1.5 rounded-full text-[10px] font-black tracking-tight border transition-all ${demonListFilter === f ? 'bg-sky-500 text-white border-sky-400' : 'bg-slate-900/50 text-slate-500 border-slate-800 hover:border-slate-700 hover:text-slate-300'}`}
+                  className={`px-3 py-1.5 rounded-none text-[10px] font-black tracking-tight border transition-all ${demonListFilter === f ? 'bg-sky-500 text-white border-sky-400' : 'bg-slate-900/50 text-slate-500 border-slate-800 hover:border-slate-700 hover:text-slate-300'}`}
                 >
                   {f}
                 </button>
@@ -160,15 +128,36 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen text-white p-4 sm:p-6 md:p-8 flex flex-col items-center">
-      <SharedHeader title="The Depths III" subtitle="Vantevia's Lists" />
-      <div className="w-full max-w-[1600px] mx-auto flex flex-col md:flex-row items-start gap-8 relative">
-        {!isCapturing && <Sidebar viewState={viewState} settings={settings} demonListType={demonListType} dataSnapshots={data.snapshots} uniqueArtists={uniqueArtists} isSaving={isSaving} isCopying={isCopying} onNavTo={(m: any) => { setViewState({ active: m, selectedHistorySong: null }); window.scrollTo({ top: 0, behavior: 'instant' }); }} onSetDemonListType={setDemonListType} onSetSettings={setSettings} onRequestCapture={(a: any) => setCaptureModal({ isOpen: true, action: a })} onExportCsv={() => downloadCsv('ranking.csv', ['Rank', 'Title', 'Artist', 'Tier'], displayedSongs.map(s => [s.rank, s.title, s.artist, s.tier]))} onClearHistorySelection={() => selSong(null)} />}
-        <main className="flex-1 w-full min-w-0">
-          {!isCapturing && <h2 className="text-2xl font-bold mb-6 border-b border-slate-700/50 pb-4">{getPageTitle()}</h2>}
-          {data.loading ? <SkeletonTable itemCount={15} isCompact={settings.isCompact} /> : data.error ? <div className="p-4 bg-red-900/50 text-red-200">{data.error}</div> : <div ref={contentRef} className={`bg-transparent ${isCapturing ? 'p-4 mx-auto w-fit' : 'w-full'}`}>{viewState.selectedHistorySong ? <SongDetailView song={viewState.selectedHistorySong} historyFilterDate={settings.historyFilterDate} isCapturing={isCapturing} snapshots={data.snapshots} songImageMap={data.thumbnailMap} remixerMap={remixerMap} metadata={selectedSongMetadata} onNavigatePrev={hIndex > 0 ? () => navStep(-1) : undefined} onNavigateNext={hIndex < globalNavigationList.length - 1 ? () => navStep(1) : undefined} /> : VIEWS[viewState.active]}</div>}
-        </main>
-      </div>
+    <div className="min-h-screen text-white p-0 flex flex-col items-stretch">
+      {!isCapturing && (
+        <header className="w-full bg-slate-950/85 backdrop-blur-md border-b border-slate-800/60 sticky top-0 z-50 shadow-2xl">
+          {/* Subtle Checkerboard Pattern */}
+          <div className="absolute inset-0 opacity-10 pointer-events-none z-0" 
+               style={{ 
+                 backgroundImage: `linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000), linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000)`, 
+                 backgroundSize: '24px 24px', 
+                 backgroundPosition: '0 0, 12px 12px' 
+               }} 
+          />
+          <div className="relative z-10 max-w-[1600px] mx-auto px-4 md:px-8 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex-1 w-full">
+              <TopBar viewState={viewState} settings={settings} demonListType={demonListType} dataSnapshots={data.snapshots} uniqueArtists={uniqueArtists} isSaving={isSaving} isCopying={isCopying} onNavTo={(m: any) => { setViewState({ active: m, selectedHistorySong: null }); window.scrollTo({ top: 0, behavior: 'instant' }); }} onSetDemonListType={setDemonListType} onSetSettings={setSettings} onRequestCapture={(a: any) => setCaptureModal({ isOpen: true, action: a })} onExportCsv={() => downloadCsv('ranking.csv', ['Rank', 'Title', 'Artist', 'Tier'], displayedSongs.map(s => [s.rank, s.title, s.artist, s.tier]))} onClearHistorySelection={() => selSong(null)} />
+            </div>
+            <BrandedTitle />
+          </div>
+        </header>
+      )}
+
+      <main className="w-full max-w-[1600px] mx-auto px-4 md:px-8 py-8 flex flex-col items-center overflow-x-hidden">
+        {data.loading ? <SkeletonTable itemCount={15} isCompact={settings.isCompact} /> : data.error ? <div className="p-4 bg-red-900/50 text-red-200">{data.error}</div> : (
+          <div ref={contentRef} className={`bg-transparent ${isCapturing ? 'p-4 mx-auto w-fit' : 'w-full flex justify-center'}`}>
+            <div className="w-full">
+              {viewState.selectedHistorySong ? <SongDetailView song={viewState.selectedHistorySong} historyFilterDate={settings.historyFilterDate} isCapturing={isCapturing} snapshots={data.snapshots} songImageMap={data.thumbnailMap} remixerMap={remixerMap} metadata={selectedSongMetadata} onNavigatePrev={hIndex > 0 ? () => navStep(-1) : undefined} onNavigateNext={hIndex < globalNavigationList.length - 1 ? () => navStep(1) : undefined} /> : VIEWS[viewState.active]}
+            </div>
+          </div>
+        )}
+      </main>
+
       <ScreenshotModal isOpen={captureModal.isOpen} onClose={() => setCaptureModal(p => ({ ...p, isOpen: false }))} onConfirm={executeCapture} action={captureModal.action} maxEntries={currentMaxEntries} />
     </div>
   );

@@ -1,4 +1,3 @@
-
 import { useMemo } from 'react';
 import { Song, RawSong, SongHistory, normalizeTitle, calculateTierScores } from '../utils';
 
@@ -26,7 +25,13 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
 
     // 2. Primary List Definitions
     const mainSongs = useMemo(() => rawSongs.filter((s: any) => s.isMain).sort((a: any, b: any) => a.rank - b.rank), [rawSongs]);
-    const unrankedSongs = useMemo(() => rawSongs.filter((s: any) => s.isUnranked).sort((a: any, b: any) => (new Date(a.dateAdded || 0).getTime()) - (new Date(b.dateAdded || 0).getTime())), [rawSongs]);
+    const unrankedSongs = useMemo(() => 
+        rawSongs
+            .filter((s: any) => s.isUnranked)
+            .map((s: any) => ({ ...s, tier: undefined })) // Strip tier from unranked
+            .sort((a: any, b: any) => (new Date(a.dateAdded || 0).getTime()) - (new Date(b.dateAdded || 0).getTime())), 
+        [rawSongs]
+    );
 
     const legacySongs = useMemo(() => {
         if (loading || !rawSongs.length) return [];
@@ -43,6 +48,7 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
                 const lastTime = lastSeenMap.get(n) || 0;
                 return {
                     ...r, title: h.title, artist: h.artist, isLegacy: true, isMain: false, rank: 0,
+                    tier: undefined, // Strip tier from legacy
                     imageUrl: thumbnailMap.get(n) || 'https://via.placeholder.com/128x72.png?text=No+Image',
                     removedDate: new Date(lastTime),
                     lastSeenTime: lastTime,
@@ -73,10 +79,11 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
             }).map((s, i) => [normalizeTitle(s.title), i + 1]));
 
             base = snap.songs.map((s: any) => {
-                const n = normalizeTitle(s.title), r = rawMap.get(n), h = historyMap.get(n);
+                // FIXED: Removed 'h = historyMap.get(n)' as it was unused
+                const n = normalizeTitle(s.title), r = rawMap.get(n);
                 return {
                     ...r, ...s, imageUrl: thumbnailMap.get(n) || 'https://via.placeholder.com/128x72.png?text=No+Image',
-                    tier: r?.tier || (h ? 'B' : 'B-'),
+                    tier: r?.tier,
                     score: scores.get(n),
                     currentRank: currRankMap.get(n),
                     relativeHistoricalRank: histRelMap.get(n),
@@ -85,12 +92,14 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
             });
             if (settings.revisionSortMode === 'current') base.sort((a, b) => (a.currentRank || 9e5) - (b.currentRank || 9e5));
         } else {
-            const sep = (t: string) => ({ title: t, isSeparator: true, rank: 0, tier: 'B-' } as any);
             const mainWithScores = mainSongs.map(s => ({ ...s, score: scores.get(normalizeTitle(s.title)) }));
             
-            base = settings.showAllSongs 
-                ? [...mainWithScores, sep("LEGACY LIST"), ...legacySongs, sep("UNRANKED LIST"), ...unrankedSongs]
-                : mainWithScores;
+            if (settings.showAllSongs) {
+                // Seamless combination with sequential rankings
+                base = [...mainWithScores, ...legacySongs, ...unrankedSongs].map((s, i) => ({ ...s, rank: i + 1 }));
+            } else {
+                base = mainWithScores;
+            }
         }
 
         let filtered = base.filter(s => s.isSeparator || (
@@ -116,21 +125,16 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
         const levels = data.demonLevels.verified || [];
         const filterIdx = DEMON_LIST_HIERARCHY.indexOf(demonListFilter);
         
-        // Filter based on the hierarchy string.
-        // If "Pointercrate" is selected (idx 0), levelIdx must be 0.
-        // If "Verified" is selected (idx 1), levelIdx must be 0 or 1.
-        // This makes ranks relative to that specific sub-collection.
         const hierarchicalFiltered = levels
             .filter((l: any) => {
                 const levelIdx = DEMON_LIST_HIERARCHY.indexOf(l.list);
                 return levelIdx !== -1 && levelIdx <= filterIdx;
             })
-            // Map relative rank to each filtered item so they display as 1, 2, 3... in the selected view
             .map((l: any, i: number) => ({ ...l, rank: i + 1 }));
 
         if (demonListType === 'main') return hierarchicalFiltered.slice(0, 75);
         if (demonListType === 'extended') return hierarchicalFiltered.slice(75, 150);
-        if (demonListType === 'all') return hierarchicalFiltered.slice(0, 150); // Cap "Full List" at 150
+        if (demonListType === 'all') return hierarchicalFiltered.slice(0, 150);
         return hierarchicalFiltered;
     }, [data.demonLevels, demonListType, demonListFilter]);
 
@@ -152,7 +156,7 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
         remixerMap,
         historyMap,
         currentMaxEntries,
-        globalNavigationList: [...mainSongs, { title: "LEGACY", isSeparator: true } as any, ...legacySongs, { title: "UNRANKED", isSeparator: true } as any, ...unrankedSongs],
+        globalNavigationList: [...mainSongs, { title: "legacy", isSeparator: true } as any, ...legacySongs, { title: "unranked", isSeparator: true } as any, ...unrankedSongs],
         selectedSongMetadata: viewState.selectedHistorySong ? rawMap.get(normalizeTitle(viewState.selectedHistorySong.title)) : undefined
     };
 };
