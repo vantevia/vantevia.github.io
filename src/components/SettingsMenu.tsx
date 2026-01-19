@@ -1,3 +1,4 @@
+
 import { formatDate } from '../utils';
 
 const Tgl = ({ l, c, o, d, s }: any) => (
@@ -19,7 +20,7 @@ const Sel = ({ l, v, o, opts }: any) => (
 );
 
 const Btn = ({ l, a, onClick }: any) => (
-    <button onClick={onClick} className={`flex-1 px-2 py-1 text-[10px] font-bold rounded uppercase border ${a ? 'bg-sky-600 border-sky-500' : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-gray-400'}`}>{l}</button>
+    <button onClick={onClick} className={`flex-1 px-2 py-1 text-[10px] font-bold rounded border ${a ? 'bg-sky-600 border-sky-500' : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-gray-400'}`}>{l}</button>
 );
 
 export const SettingsMenu = ({ settings: s, onSettingChange: set, onSave, isSaving, onCopy, isCopying, snapshots, uniqueArtists }: any) => {
@@ -40,31 +41,31 @@ export const SettingsMenu = ({ settings: s, onSettingChange: set, onSave, isSavi
 
     return (
         <div className="bg-slate-900/40 backdrop-blur-md border border-slate-700/50 rounded-xl p-4 flex flex-col gap-4 shadow-xl">
-            <h3 className="text-xs font-bold text-gray-400 uppercase">Modes</h3>
+            <h3 className="text-xs font-bold text-gray-400">Modes</h3>
             <div className="divide-y divide-slate-800/50">
                 <Tgl l="Show All Songs" s="Include Removed/Legacy" c={s.showAllSongs} o={(v: any) => set('showAllSongs', v)} d={s.showRevisionHistory} />
                 <Tgl l="Revision History" c={s.showRevisionHistory} o={(v: any) => set('showRevisionHistory', v)} />
                 {s.showRevisionHistory && <div className="pb-2 space-y-3">
                     <Sel l="Revision" v={s.selectedRevisionIndex} o={(v: any) => set('selectedRevisionIndex', +v)} opts={revOpts} />
                     {['revisionSortMode', 'revisionMainRankMode'].map(k => (
-                        <div key={k} className="flex flex-col gap-1"><span className="text-[10px] text-gray-400 font-bold uppercase">{k.includes('Sort') ? 'Sort By' : 'Main Rank'}</span>
+                        <div key={k} className="flex flex-col gap-1"><span className="text-[10px] text-gray-400 font-bold">{k.includes('Sort') ? 'Sort By' : 'Main Rank'}</span>
                             <div className="flex gap-1"><Btn l="Rev #" a={s[k] === 'revision'} onClick={() => set(k, 'revision')} /><Btn l="Curr #" a={s[k] === 'current'} onClick={() => set(k, 'current')} /></div>
                         </div>
                     ))}
-                    <div className="space-y-1"><span className="text-[10px] text-gray-400 font-bold uppercase">Revision Columns</span>
+                    <div className="space-y-1"><span className="text-[10px] text-gray-400 font-bold">Revision Columns</span>
                         {['Current', 'Rel. Hist', 'Rel. Curr'].map((l, i) => { const k = ['showRevisionCurrentRank', 'showRevisionRelativeHistoricalRank', 'showRevisionRelativeCurrentRank'][i]; return <Tgl key={k} l={`Show ${l} #`} c={s[k]} o={(v: any) => set(k, v)} />; })}
                     </div>
                 </div>}
             </div>
 
             <div className="border-t border-slate-700/50 pt-4">
-                <h3 className="text-xs font-bold text-gray-400 uppercase mb-2">Display</h3>
+                <h3 className="text-xs font-bold text-gray-400 mb-2">Display</h3>
                 <Sel l="Layout Mode" v={s.layoutMode} o={(v: any) => set('layoutMode', v)} opts={[{ val: 'standard', label: 'Standard' }, { val: 'compact', label: 'Compact' }, { val: 'grid', label: 'Grid' }]} />
                 <div className="divide-y divide-slate-800/50 mt-2">{toggles.map(t => <Tgl key={t.k} l={t.l} c={t.v ?? s[t.k]} o={t.set ?? ((v: any) => set(t.k, v))} d={t.d} />)}</div>
             </div>
 
             <div className="border-t border-slate-700/50 pt-4 space-y-3">
-                <h3 className="text-xs font-bold text-gray-400 uppercase">Filters</h3>
+                <h3 className="text-xs font-bold text-gray-400">Filters</h3>
                 <Sel l="Sort Order" v={s.sortMode} o={(v: any) => set('sortMode', v)} opts={[{ val: 'rank', label: 'By Rank' }, { val: 'title', label: 'Alphabetical' }, { val: 'date', label: 'Date Added' }]} />
                 <div className="flex flex-col gap-1"><span className="text-sm text-gray-300 font-semibold">History Since</span><input type="date" value={s.historyFilterDate.toISOString().split('T')[0]} onChange={e => set('historyFilterDate', new Date(e.target.value + 'T00:00:00'))} className="bg-slate-800 border border-slate-600 rounded p-1.5 text-xs text-white outline-none" /></div>
                 <Sel l="Song Type" v={s.songTypeFilter} o={(v: any) => set('songTypeFilter', v)} opts={[{ val: 'all', label: 'All Types' }, { val: 'Vocal', label: 'Vocal' }, { val: 'Instrumental', label: 'Instrumental' }]} />

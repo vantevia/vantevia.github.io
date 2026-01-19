@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export const Tier = {
@@ -21,7 +22,7 @@ export interface SongEntry { rank: number; title: string; artist: string; reason
 export interface ChangelogEntry { type: 'move' | 'place' | 'remove'; description: string; subjectTitle: string; secondaryTitle?: string; oldRank?: number; newRank?: number; }
 export interface Snapshot { date: Date; songs: SongEntry[]; revisionLabel?: string; changelogEntries?: ChangelogEntry[]; }
 export interface SongHistory { key: string; title: string; artist: string; history: { date: Date; rank: number; reason?: string; revisionLabel?: string }[]; firstSeen: Date; }
-export interface DemonLevel { rank: number; name: string; creator: string; thumbnail: string; }
+export interface DemonLevel { rank: number; name: string; creator: string; thumbnail: string; list: string; }
 
 export interface RawSong {
   imageUrl: string; title: string; artist: string; remixer: string | null;
@@ -115,7 +116,7 @@ export const fetchSongData = async () => {
 
 export const fetchDemonList = async () => {
   const txt = await (await fetch(`${SHEETS_CONFIG.csvUrl}&gid=${SHEETS_CONFIG.demonListGid}`)).text();
-  return { verified: csvToJson(parseCsv(txt)).map((r: any, i) => ({ name: r.name, creator: r.creator, thumbnail: r.image, rank: parseInt(r.rank || r['#'] || (i+1)) })).filter(l => l.name) };
+  return { verified: csvToJson(parseCsv(txt)).map((r: any, i) => ({ name: r.name, creator: r.creator, thumbnail: r.image, list: r.list || 'Verified', rank: parseInt(r.rank || r['#'] || (i+1)) })).filter(l => l.name) };
 };
 
 export const saveSongData = (songs: RawSong[]) => fetch(SHEETS_CONFIG.scriptUrl, {

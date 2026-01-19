@@ -30,19 +30,19 @@ export const SongDetailView = ({ song, historyFilterDate, isCapturing, songImage
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-10 px-4 border-t border-slate-800/60 pt-6">
         {[ { l: 'Song Link', v: metadata?.link ? <a href={metadata.link} target="_blank" className="hover:text-sky-400 truncate block font-medium">{metadata.link}</a> : null }, { l: 'Added Date', v: metadata?.dateAdded ? formatDate(metadata.dateAdded) : null, c: 'md:items-center md:text-center' }, { l: 'Duration', v: metadata?.duration || '--:--', c: 'md:items-end md:text-right' } ].map((m, i) => (
-          <div key={i} className={`flex flex-col ${m.c || ''}`}><span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">{m.l}</span><div className="text-sm md:text-xl text-white border-b border-slate-700/50 pb-2 w-full truncate">{m.v || <span className="text-slate-600 italic">Unknown</span>}</div></div>
+          <div key={i} className={`flex flex-col ${m.c || ''}`}><span className="text-slate-400 text-[10px] font-bold tracking-wider mb-1">{m.l}</span><div className="text-sm md:text-xl text-white border-b border-slate-700/50 pb-2 w-full truncate">{m.v || <span className="text-slate-600 italic">Unknown</span>}</div></div>
         ))}
       </div>
 
       <div className="w-full px-4">
-        <h3 className="text-lg font-bold mb-4 border-b border-slate-800 pb-2 text-center uppercase tracking-wide">Position History</h3>
+        <h3 className="text-lg font-bold mb-4 border-b border-slate-800 pb-2 text-center tracking-wide">Position History</h3>
         <div className="flex flex-col divide-y divide-slate-800/50">
           {history.map((e: any, i: number) => {
             const prev = song.history[song.history.findIndex((h: any) => h === e) - 1]?.rank, diff = prev ? prev - e.rank : null;
             return (
               <div key={i} className="group flex items-center py-4 px-2 hover:bg-white/5 transition-colors gap-4 md:gap-6">
                 <div className="w-24 shrink-0 text-slate-300 font-medium">{formatDate(e.date)}</div>
-                <div className="flex items-center gap-4 w-40 shrink-0"><b className="w-16 text-right text-lg">#{e.rank}</b><div className="w-20 text-center">{diff === null ? <span className="text-sky-400 text-xs font-bold uppercase">New</span> : diff > 0 ? <span className="text-green-500 font-bold">▲ {diff}</span> : diff < 0 ? <span className="text-red-500 font-bold">▼ {Math.abs(diff)}</span> : <span className="text-slate-600 font-bold">—</span>}</div></div>
+                <div className="flex items-center gap-4 w-40 shrink-0"><b className="w-16 text-right text-lg">#{e.rank}</b><div className="w-20 text-center">{diff === null ? <span className="text-sky-400 text-xs font-bold">New</span> : diff > 0 ? <span className="text-green-500 font-bold">▲ {diff}</span> : diff < 0 ? <span className="text-red-500 font-bold">▼ {Math.abs(diff)}</span> : <span className="text-slate-600 font-bold">—</span>}</div></div>
                 <div className="flex-1 truncate text-slate-500 group-hover:text-slate-400" title={e.reason}>{e.reason}</div>
               </div>
             );
@@ -112,7 +112,7 @@ export const ChangelogView = ({ snapshots, songImageMap, remixerMap, artistMap, 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4" onClick={onClose}>
         <div className="bg-slate-900 border border-slate-700 shadow-2xl p-6 w-full max-w-7xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-          <div className="flex justify-between items-start mb-6"><div><h3 className="text-xl font-bold">Position Change</h3></div><button onClick={onClose} className="text-gray-400 hover:text-white px-3 py-1 bg-slate-800 border border-slate-700 text-xs font-bold">CLOSE</button></div>
+          <div className="flex justify-between items-start mb-6"><div><h3 className="text-xl font-bold">Position Change</h3></div><button onClick={onClose} className="text-gray-400 hover:text-white px-3 py-1 bg-slate-800 border border-slate-700 text-xs font-bold">Close</button></div>
           <div className="flex flex-col md:flex-row gap-8 pb-2 justify-center">{beforeSnapshot && <List items={b} />}{isSplit && <div className="hidden md:block h-64 w-px bg-slate-800 self-center" />}<List items={a} /></div>
         </div>
       </div>

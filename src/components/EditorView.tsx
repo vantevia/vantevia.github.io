@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { RawSong } from '../utils';
 import { saveSongData, appendChangelog } from '../utils';
@@ -74,17 +75,17 @@ export const EditorView: React.FC<{ songs: RawSong[]; onSaveSuccess: () => void 
 
     const COLUMNS = [
         { h: '#', w: 'w-24', f: 'rank' },
-        { h: 'SONG', w: 'min-w-[300px]', f: 'title', b: true },
-        { h: 'ARTIST', w: 'min-w-[200px]', f: 'artist' },
-        { h: 'REMIXER', w: 'min-w-[150px]', f: 'remixer' },
-        { h: 'INST/VOCAL', w: 'min-w-[150px]', f: 'type', o: ['Vocal', 'Instrumental'] },
+        { h: 'Song', w: 'min-w-[300px]', f: 'title', b: true },
+        { h: 'Artist', w: 'min-w-[200px]', f: 'artist' },
+        { h: 'Remixer', w: 'min-w-[150px]', f: 'remixer' },
+        { h: 'Inst/Vocal', w: 'min-w-[150px]', f: 'type', o: ['Vocal', 'Instrumental'] },
         { h: 'Date Added', w: 'min-w-[140px]', f: 'dateAdded' },
-        { h: 'TIER', w: 'min-w-[150px]', f: 'tier', o: ['S+', 'S', 'A++', 'A+', 'A', 'A-', 'B+', 'B', 'B-'] },
-        { h: 'MAIN', w: 'min-w-[120px]' },
-        { h: 'BACKGROUND', w: 'min-w-[120px]', f: 'backgroundColor' },
-        { h: 'DURATION', w: 'w-28', f: 'duration' },
-        { h: 'LINK', w: 'min-w-[250px]', f: 'link' },
-        { h: 'IMAGE', w: 'min-w-[250px]', f: 'imageUrl' }
+        { h: 'Tier', w: 'min-w-[150px]', f: 'tier', o: ['S+', 'S', 'A++', 'A+', 'A', 'A-', 'B+', 'B', 'B-'] },
+        { h: 'Main', w: 'min-w-[120px]' },
+        { h: 'Background', w: 'min-w-[120px]', f: 'backgroundColor' },
+        { h: 'Duration', w: 'w-28', f: 'duration' },
+        { h: 'Link', w: 'min-w-[250px]', f: 'link' },
+        { h: 'Image', w: 'min-w-[250px]', f: 'imageUrl' }
     ];
 
     return (
@@ -103,7 +104,7 @@ export const EditorView: React.FC<{ songs: RawSong[]; onSaveSuccess: () => void 
                 <div className="flex-1 overflow-auto">
                     <table className="w-full text-left border-collapse min-w-[2100px]">
                         <thead className="bg-slate-800 sticky top-0 z-20 shadow-md">
-                            <tr>{COLUMNS.map(c => <th key={c.h} className={`p-3 border-r border-slate-700 text-center text-gray-300 uppercase text-sm font-bold tracking-wider ${c.w}`}>{c.h}</th>)}</tr>
+                            <tr>{COLUMNS.map(c => <th key={c.h} className={`p-3 border-r border-slate-700 text-center text-gray-300 text-sm font-bold tracking-wider ${c.w}`}>{c.h}</th>)}</tr>
                         </thead>
                         <tbody className="text-gray-200 divide-y divide-slate-800">
                             {localSongs.map((s) => (
@@ -117,7 +118,7 @@ export const EditorView: React.FC<{ songs: RawSong[]; onSaveSuccess: () => void 
                                                     onKeyDown={e => e.key === 'Enter' && (e.target as any).blur()} 
                                                     className="w-full bg-transparent text-center font-mono font-bold text-sky-400 outline-none" 
                                                 />
-                                            ) : c.h === 'MAIN' ? (
+                                            ) : c.h === 'Main' ? (
                                                 <select value={s.isMain ? 'Y' : s.isUnranked ? 'U' : 'N'} 
                                                     onChange={e => { 
                                                         const v = e.target.value as any, n = [...localSongs], idx = n.findIndex(x => x.title === s.title);
@@ -136,7 +137,7 @@ export const EditorView: React.FC<{ songs: RawSong[]; onSaveSuccess: () => void 
                                                 <input key={s.title + (s as any)[c.f!]} type="text" defaultValue={(s as any)[c.f!] || ''} 
                                                     onBlur={(e) => { if(e.target.value !== (s as any)[c.f!]) updProp(s.title, c.f as any, e.target.value); }} 
                                                     onKeyDown={e => e.key === 'Enter' && (e.target as any).blur()} 
-                                                    className={`w-full bg-transparent p-2 outline-none ${c.b ? 'font-bold text-white' : ''} ${c.h === 'DURATION' || c.h === 'Date Added' ? 'text-center' : ''}`} 
+                                                    className={`w-full bg-transparent p-2 outline-none ${c.b ? 'font-bold text-white' : ''} ${c.h === 'Duration' || c.h === 'Date Added' ? 'text-center' : ''}`} 
                                                 />
                                             )}
                                         </td>
@@ -149,7 +150,7 @@ export const EditorView: React.FC<{ songs: RawSong[]; onSaveSuccess: () => void 
 
                 <div className="w-96 border-l border-slate-700 bg-slate-800/30 flex flex-col shrink-0">
                     <div className="p-4 bg-slate-800/80 border-b border-slate-700 flex justify-between items-center">
-                        <span className="font-bold text-sm text-slate-300 uppercase tracking-wider">Session Log</span>
+                        <span className="font-bold text-sm text-slate-300 tracking-wider">Session Log</span>
                         <label className="flex items-center gap-2 cursor-pointer text-xs text-sky-400 font-bold"><input type="checkbox" checked={ui.auto} onChange={e => setUi({ ...ui, auto: e.target.checked })} className="accent-sky-500" /> Auto-log</label>
                     </div>
                     <div className="p-3 bg-slate-900/50 border-b border-slate-700/50">

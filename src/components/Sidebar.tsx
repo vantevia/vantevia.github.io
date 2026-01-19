@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { SettingsMenu } from './SettingsMenu';
 import { ViewMode, DemonListType, DisplaySettings, Snapshot, SongHistory } from '../utils';
@@ -33,7 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
     };
 
     const Section = ({ title }: { title: string }) => (
-        <div className="p-4 border-y border-slate-700/50 bg-slate-800/40 font-bold text-gray-200 text-xs uppercase tracking-tight">{title}</div>
+        <div className="p-4 border-y border-slate-700/50 bg-slate-800/40 font-bold text-gray-200 text-xs tracking-tight">{title}</div>
     );
 
     return (

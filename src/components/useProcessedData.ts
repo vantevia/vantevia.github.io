@@ -1,7 +1,10 @@
+
 import { useMemo } from 'react';
 import { Song, RawSong, SongHistory, normalizeTitle, calculateTierScores } from '../utils';
 
-export const useProcessedData = ({ data, settings, viewState, demonListType }: any) => {
+const DEMON_LIST_HIERARCHY = ["Pointercrate", "Verified", "Verification Progress", "Completed", ">50% Complete", "<50% Complete", "0% Complete"];
+
+export const useProcessedData = ({ data, settings, viewState, demonListType, demonListFilter }: any) => {
     const { rawSongs, snapshots, histories, thumbnailMap, loading } = data;
 
     // 1. Fundamental Maps for O(1) lookups
@@ -111,10 +114,25 @@ export const useProcessedData = ({ data, settings, viewState, demonListType }: a
     // 4. Demon List & Totals
     const displayedDemonLevels = useMemo(() => {
         const levels = data.demonLevels.verified || [];
-        if (demonListType === 'main') return levels.slice(0, 75);
-        if (demonListType === 'extended') return levels.slice(75, 150);
-        return levels;
-    }, [data.demonLevels, demonListType]);
+        const filterIdx = DEMON_LIST_HIERARCHY.indexOf(demonListFilter);
+        
+        // Filter based on the hierarchy string.
+        // If "Pointercrate" is selected (idx 0), levelIdx must be 0.
+        // If "Verified" is selected (idx 1), levelIdx must be 0 or 1.
+        // This makes ranks relative to that specific sub-collection.
+        const hierarchicalFiltered = levels
+            .filter((l: any) => {
+                const levelIdx = DEMON_LIST_HIERARCHY.indexOf(l.list);
+                return levelIdx !== -1 && levelIdx <= filterIdx;
+            })
+            // Map relative rank to each filtered item so they display as 1, 2, 3... in the selected view
+            .map((l: any, i: number) => ({ ...l, rank: i + 1 }));
+
+        if (demonListType === 'main') return hierarchicalFiltered.slice(0, 75);
+        if (demonListType === 'extended') return hierarchicalFiltered.slice(75, 150);
+        if (demonListType === 'all') return hierarchicalFiltered.slice(0, 150); // Cap "Full List" at 150
+        return hierarchicalFiltered;
+    }, [data.demonLevels, demonListType, demonListFilter]);
 
     const currentMaxEntries = useMemo(() => {
         if (viewState.selectedHistorySong) return undefined;

@@ -13,7 +13,6 @@ import { EditorView } from './components/EditorView';
 const SharedHeader = ({ title, subtitle }: { title: string; subtitle: string }) => (
   <header className="w-full mb-6 grid grid-cols-[1fr_auto_1fr] px-4 md:px-8 z-10">
     <div className="col-start-2 text-center">
-      {/* Removed 'uppercase' from the class list below */}
       <h1 className="text-3xl sm:text-4xl font-bold text-shadow-[0_2px_4px_rgba(0,0,0,0.5)] tracking-wide">{title}</h1>
       <p className="text-gray-300 text-sm sm:text-base text-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">{subtitle}</p>
     </div>
@@ -37,6 +36,8 @@ const DEMON_LIST_TITLES: Record<string, string> = {
   all: 'Verified Levels List'
 };
 
+const DEMON_LIST_FILTERS = ["Pointercrate", "Verified", "Verification Progress", "Completed", ">50% Complete", "<50% Complete", "0% Complete"];
+
 // --- MAIN APP ---
 export default function App() {
   const [data, setData] = useState({ rawSongs: [] as RawSong[], thumbnailMap: new Map(), artistMap: new Map(), remixerMap: new Map(), demonLevels: { verified: [] } as Record<string, DemonLevel[]>, snapshots: [] as any[], histories: [] as SongHistory[], loading: true, error: null as string | null });
@@ -49,12 +50,13 @@ export default function App() {
 
   const [viewState, setViewState] = useState({ active: 'visual' as ViewMode, selectedHistorySong: null as SongHistory | null });
   const [demonListType, setDemonListType] = useState<DemonListType>('main');
+  const [demonListFilter, setDemonListFilter] = useState<string>("Verified");
   const [captureModal, setCaptureModal] = useState({ isOpen: false, action: 'save' as 'save' | 'copy' });
   const [captureLimit, setCaptureLimit] = useState<number | null>(null);
 
   const { isCapturing, isSaving, isCopying, capture } = useScreenshot();
   const contentRef = useRef<HTMLDivElement>(null);
-  const { displayedSongs, displayedDemonLevels, uniqueArtists, remixerMap, historyMap, currentMaxEntries, selectedSongMetadata, globalNavigationList } = useProcessedData({ data, settings, viewState, demonListType });
+  const { displayedSongs, displayedDemonLevels, uniqueArtists, remixerMap, historyMap, currentMaxEntries, selectedSongMetadata, globalNavigationList } = useProcessedData({ data, settings, viewState, demonListType, demonListFilter });
 
   useEffect(() => {
     Promise.all([fetchSongData(), fetch('https://docs.google.com/spreadsheets/d/1jwBvS09EtK31B8uPRKMuCSTS-ghJYfRuVqfit1p_a7Q/export?format=csv&gid=477178938').then(r => r.text()), fetchDemonList()])
@@ -71,13 +73,9 @@ export default function App() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
-      
-      // Hotkeys
       if (e.code === 'KeyS') setCaptureModal({ isOpen: true, action: 'save' });
       if (e.shiftKey && e.code === 'KeyC') setCaptureModal({ isOpen: true, action: 'copy' });
       if (e.code === 'KeyF') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
-      
-      // Restored Layout Toggles
       if (e.code === 'KeyC' && !e.shiftKey) setSettings(p => ({ ...p, layoutMode: p.layoutMode === 'compact' ? 'standard' : 'compact' }));
       if (e.code === 'KeyG') setSettings(p => ({ ...p, layoutMode: p.layoutMode === 'grid' ? 'standard' : 'grid' }));
     };
@@ -85,10 +83,22 @@ export default function App() {
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
-  const executeCapture = useCallback(async (scale: number, limit?: number) => {
-    if (limit) setCaptureLimit(limit); setCaptureModal(p => ({ ...p, isOpen: false }));
-    const name = viewState.selectedHistorySong ? `${viewState.selectedHistorySong.title.replace(/[^a-z0-9]/gi, '_')}_history.png` : `${viewState.active}.png`;
-    await capture(contentRef.current, captureModal.action, name, scale);
+  const executeCapture = useCallback(async (scale: string, limit?: number) => {
+    // 1. Set the limit state so the UI renders fewer items
+    if (limit) setCaptureLimit(limit); 
+    
+    setCaptureModal(p => ({ ...p, isOpen: false }));
+
+    // 2. Determine the filename
+    const name = viewState.selectedHistorySong 
+      ? `${viewState.selectedHistorySong.title.replace(/[^a-z0-9]/gi, '_')}_history.png` 
+      : `${viewState.active}.png`;
+
+    // 3. Call capture with EXACTLY 4 arguments
+    // We convert scale to a number using parseFloat
+    await capture(contentRef.current, captureModal.action, name, parseFloat(scale) || 1);
+
+    // 4. Reset the limit so the full list comes back
     setCaptureLimit(null);
   }, [captureModal.action, capture, viewState, viewState.selectedHistorySong]);
 
@@ -114,8 +124,37 @@ export default function App() {
     editor: <EditorView songs={data.rawSongs} onSaveSuccess={() => window.location.reload()} />,
     demonlist: (
       <>
-        {!isCapturing && <div className="flex justify-center gap-2 mb-6">{['main', 'extended', 'all'].map(t => <button key={t} onClick={() => setDemonListType(t as any)} className={`px-4 py-2 rounded font-bold text-sm border ${demonListType === t ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400'}`}>{t === 'all' ? 'Full List' : `${t.charAt(0).toUpperCase() + t.slice(1)} List`}</button>)}</div>}
-        <div className={`mx-auto ${settings.isCompact ? 'w-[500px]' : 'w-[900px]'} ${settings.isCompact ? 'flex flex-col shadow-2xl' : 'space-y-4'}`}>{(captureLimit ? displayedDemonLevels.slice(0, captureLimit) : displayedDemonLevels).map(l => <SongItem key={`${l.rank}-${l.name}`} variant="grid" song={l} isCompact={settings.isCompact} isForCapture={isCapturing} showArtist={settings.showArtist} />)}</div>
+        {!isCapturing && (
+          <div className="flex flex-col items-center gap-4 mb-8">
+            <div className="flex flex-wrap justify-center gap-2">
+              {['main', 'extended', 'all'].map(t => (
+                <button 
+                  key={t} 
+                  onClick={() => setDemonListType(t as any)} 
+                  className={`px-4 py-2 rounded font-bold text-sm border transition-colors ${demonListType === t ? 'bg-sky-600 text-white border-sky-500' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}`}
+                >
+                  {t === 'all' ? 'Full List' : `${t.charAt(0).toUpperCase() + t.slice(1)} List`}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap justify-center gap-2 items-center">
+              {DEMON_LIST_FILTERS.map(f => (
+                <button 
+                  key={f} 
+                  onClick={() => setDemonListFilter(f)} 
+                  className={`px-3 py-1.5 rounded-full text-[10px] font-black tracking-tight border transition-all ${demonListFilter === f ? 'bg-sky-500 text-white border-sky-400' : 'bg-slate-900/50 text-slate-500 border-slate-800 hover:border-slate-700 hover:text-slate-300'}`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className={`mx-auto ${settings.isCompact ? 'w-[500px]' : 'w-[900px]'} ${settings.isCompact ? 'flex flex-col shadow-2xl' : 'space-y-4'}`}>
+          {(captureLimit ? displayedDemonLevels.slice(0, captureLimit) : displayedDemonLevels).map(l => (
+            <SongItem key={`${l.rank}-${l.name}`} variant="grid" song={l} isCompact={settings.isCompact} isForCapture={isCapturing} showArtist={settings.showArtist} />
+          ))}
+        </div>
       </>
     )
   };
