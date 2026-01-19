@@ -7,16 +7,16 @@ export const useScreenshot = () => {
   const [status, setStatus] = useState<'save' | 'copy' | null>(null);
 
   const capture = useCallback(async (el: HTMLElement | null, act: 'save' | 'copy', name = 'screenshot.png', scale = 1) => {
+    if (!el) return;
     setStatus(act);
     
-    // FIX 1: Explicitly wait for browser to confirm fonts are usable
-    await document.fonts.ready;
-    // FIX 2: Increased delay. Production servers/GitHub Pages load assets slower than local/AI Studio
-    await new Promise(r => setTimeout(r, 700)); 
-    
-    if (!el) return setStatus(null);
+    // Wait for any lazy assets/fonts
+    await new Promise(r => setTimeout(r, 600));
 
     try {
+      // Get exact coordinates to isolate from scroll interference
+      const rect = el.getBoundingClientRect();
+      
       const canvas = await html2canvas(el, {
         useCORS: true,
         allowTaint: true,
@@ -24,18 +24,20 @@ export const useScreenshot = () => {
         scale,
         logging: false,
         imageTimeout: 0,
-        // FIX 3: Precise coordinate tracking for GitHub Pages environments
-        scrollX: -window.scrollX,
-        scrollY: -window.scrollY,
-        removeContainer: true,
-        // FIX 4: The most important part. Forces the cloned document to 
-        // reset the vertical alignment math before "painting"
+        // PRECISE BOUNDS: This fixes the "Sinking Text" bug on live sites
+        // by telling the engine exactly where the element is relative to the document
+        width: rect.width,
+        height: rect.height,
+        x: rect.left + window.pageXOffset,
+        y: rect.top + window.pageYOffset,
+        scrollX: 0,
+        scrollY: 0,
+        // Ensure the clone preserves the Flexbox centering logic
         onclone: (clonedDoc: any) => {
-          const songs = clonedDoc.querySelectorAll('.flex, .items-center');
-          songs.forEach((item: any) => {
-            item.style.display = 'flex';
-            item.style.alignItems = 'center';
-            item.style.lineHeight = '1'; // Prevents font "leading" from pushing text down
+          const contentContainers = clonedDoc.querySelectorAll('.flex.items-center');
+          contentContainers.forEach((container: any) => {
+            container.style.display = 'flex';
+            container.style.alignItems = 'center';
           });
         }
       });
@@ -47,12 +49,13 @@ export const useScreenshot = () => {
         link.click();
       } else {
         canvas.toBlob(async (blob: any) => {
-          if (!blob) return;
-          try {
-            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-            alert('Copied to clipboard!');
-          } catch {
-            alert('Copy failed. Use download instead.');
+          if (blob) {
+            try {
+              await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+              alert('Copied to clipboard!');
+            } catch {
+              alert('Copy failed. Try Download.');
+            }
           }
         }, 'image/png', 1.0);
       }
@@ -70,8 +73,15 @@ export const useScreenshot = () => {
 // --- 2. THE MODAL COMPONENT ---
 const Field = ({ label, val, set, min, max, cur, sub, step = "1" }: any) => (
   <div className="space-y-2 rounded-none">
-    <div className="flex justify-between text-sm font-semibold text-gray-300 rounded-none"><span>{label}</span><span className="text-sky-400">{cur}</span></div>
-    <input type="number" min={min} max={max} step={step} value={val} onChange={e => set(e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded-none p-3 text-white focus:outline-none focus:border-sky-500 transition-all" />
+    <div className="flex justify-between text-sm font-semibold text-gray-300 rounded-none">
+      <span>{label}</span>
+      <span className="text-sky-400">{cur}</span>
+    </div>
+    <input 
+      type="number" min={min} max={max} step={step} value={val} 
+      onChange={e => set(e.target.value)} 
+      className="w-full bg-slate-800 border border-slate-600 rounded-none p-3 text-white focus:outline-none focus:border-sky-500 transition-all" 
+    />
     <p className="text-xs text-slate-500 rounded-none">{sub}</p>
   </div>
 );
