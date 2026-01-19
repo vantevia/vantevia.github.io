@@ -12,6 +12,20 @@ const CONFIG = {
   CHANGELOG_SHEET_NAME: "TD3-CL" 
 };
 
+function doGet(e) {
+  return ContentService.createTextOutput('').setMimeType(ContentService.MimeType.TEXT)
+    .addHeader('Access-Control-Allow-Origin', '*')
+    .addHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+    .addHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
+function doOptions(e) {
+  return ContentService.createTextOutput('')
+    .addHeader('Access-Control-Allow-Origin', '*')
+    .addHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+    .addHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
 function doPost(e) {
   const user = Session.getEffectiveUser();
   const userEmail = user.getEmail();
@@ -52,13 +66,15 @@ function doPost(e) {
     }
 
     return ContentService.createTextOutput(JSON.stringify({ status: 'success' }))
-      .setMimeType(ContentService.MimeType.JSON);
+      .setMimeType(ContentService.MimeType.JSON)
+      .addHeader('Access-Control-Allow-Origin', '*');
 
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ 
       status: 'error', 
       message: err.toString(),
       stack: err.stack
+      .addHeader('Access-Control-Allow-Origin', '*')
     })).setMimeType(ContentService.MimeType.JSON);
     
   } finally {
