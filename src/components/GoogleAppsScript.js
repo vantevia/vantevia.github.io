@@ -13,14 +13,14 @@ const CONFIG = {
 };
 
 function doPost(e) {
-  // Verify authentication token
-  const providedToken = e.postData.parameters?.token || e.parameter?.token;
-  const expectedToken = "skibidi";
+  // Check if user is authenticated and authorized
+  const user = Session.getEffectiveUser();
+  const authorizedEmail = "mapacore4152@gmail.com";
   
-  if (providedToken !== expectedToken) {
+  if (user.getEmail() !== authorizedEmail) {
     return ContentService.createTextOutput(JSON.stringify({ 
       status: 'error', 
-      message: 'Unauthorized: Invalid token' 
+      message: 'Unauthorized: Only ' + authorizedEmail + ' can edit' 
     })).setMimeType(ContentService.MimeType.JSON);
   }
 

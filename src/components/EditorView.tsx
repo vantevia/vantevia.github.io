@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { RawSong } from '../utils';
 import { saveSongData, appendChangelog } from '../utils';
-import { PasswordModal } from './PasswordModal';
 
 export const EditorView: React.FC<{ songs: RawSong[]; onSaveSuccess: () => void }> = ({ songs, onSaveSuccess }) => {
-    const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('editorAuth') === 'true');
     const [localSongs, setLocalSongs] = useState<RawSong[]>([]);
     const [log, setLog] = useState<any[]>([]);
     const [hist, setHist] = useState<any[]>([]);
@@ -88,10 +86,6 @@ export const EditorView: React.FC<{ songs: RawSong[]; onSaveSuccess: () => void 
         { h: 'LINK', w: 'min-w-[250px]', f: 'link' },
         { h: 'IMAGE', w: 'min-w-[250px]', f: 'imageUrl' }
     ];
-
-    if (!isAuthenticated) {
-        return <PasswordModal onSuccess={() => setIsAuthenticated(true)} />;
-    }
 
     return (
         <div className="w-full max-w-[98vw] mx-auto bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl flex flex-col h-[90vh]">
