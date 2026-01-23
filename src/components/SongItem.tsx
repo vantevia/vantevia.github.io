@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { getTierStyles, getGrayStyles, formatDate, Tier } from '../utils';
+import { getTierStyles, getGrayStyles, formatDate, Tier, TIER_ORDER } from '../utils';
 
 // --- 1. INTERNAL COMPONENTS ---
 const Thumbnail = ({ imageUrl, alt, priority, className }: { imageUrl: string; alt: string; priority?: boolean, className?: string }) => {
@@ -69,18 +69,176 @@ const GridCompactItem = (p: any) => {
 };
 
 const GridWideItem = (p: any) => {
-  const { song, onClick, hideTierText, showScore, showArtist = true, showVisualMetadata = true } = p, display = useSongDisplay({ ...p, song });
-  const [isSquare, setIsSquare] = useState(false); const isCondensed = !showArtist && !showVisualMetadata;
+  const { song, onClick, hideTierText, showScore, showArtist = true, showVisualMetadata = true, showDetails, isEditing, onUpdateRank, onUpdateProp } = p;
+  const display = useSongDisplay({ ...p, song });
+  const [isSquare, setIsSquare] = useState(false);
+  const isCondensed = !showArtist && !showVisualMetadata && !showDetails;
+  
+  const status = song.isLegacy ? 'Legacy' : song.isUnranked ? 'Unranked' : 'Main';
+  const remixer = (song.remixer && song.remixer !== 'N/A' && song.remixer !== 'none') ? song.remixer : 'N/A';
+  const bgColor = (song.backgroundColor && song.backgroundColor !== 'none') ? song.backgroundColor : 'N/A';
+
+  const handleRankConfirm = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const val = parseInt((e.target as HTMLInputElement).value);
+      if (!isNaN(val) && onUpdateRank) {
+        onUpdateRank(song.title, val);
+        (e.target as HTMLInputElement).blur();
+      }
+    }
+  };
+
+  const EditInput = ({ field, value, type = "text" }: { field: string, value: any, type?: string }) => (
+    <input 
+      key={`${song.title}-${field}`}
+      type={type}
+      defaultValue={value}
+      onBlur={(e) => onUpdateProp(song.title, field, e.target.value)}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as any).blur()}
+      className="bg-white/5 border border-white/10 text-white p-1 rounded-none w-full text-xs font-normal outline-none focus:border-sky-500"
+    />
+  );
+
   return (
-    <div onClick={onClick} className={`group relative w-full ${isCondensed ? 'h-24' : 'h-36'} rounded-none cursor-pointer shadow-lg transition-transform hover:scale-[1.01] p-[3px]`} style={display.activeBorder.borderStyle}>
-      <div className="w-full h-full relative overflow-hidden flex items-center rounded-none" style={display.containerBg}>
+    <div onClick={isEditing ? undefined : onClick} className={`group relative w-full ${showDetails ? 'min-h-[220px]' : (isCondensed ? 'h-24' : 'h-36')} rounded-none ${isEditing ? 'cursor-default' : 'cursor-pointer'} shadow-lg transition-transform hover:scale-[1.01] p-[3px]`} style={display.activeBorder.borderStyle}>
+      <div className="w-full h-full relative overflow-hidden flex items-stretch rounded-none" style={display.containerBg}>
         <div className="absolute inset-0 opacity-20 pointer-events-none z-0 rounded-none" style={{ backgroundImage: `linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000), linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000)`, backgroundSize: '20px 20px', backgroundPosition: '0 0, 10px 10px' }} />
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent pointer-events-none z-0 rounded-none" />
-        <div className="relative z-10 flex h-full w-full items-center rounded-none">
-          <div className="h-full aspect-video shrink-0 relative overflow-hidden shadow-[4px_0_20px_rgba(0,0,0,0.5)] border-r border-white/10 group-hover:brightness-110 transition-all bg-black rounded-none"><img src={song.imageUrl || song.thumbnail} alt={song.title} className={`w-full h-full ${isSquare ? 'object-contain' : 'object-cover'} rounded-none`} onLoad={e => setIsSquare(e.currentTarget.naturalWidth === e.currentTarget.naturalHeight)} /></div>
-          <div className="flex-1 flex justify-between items-center px-6 min-w-0 rounded-none">
-            <div className="flex-1 flex flex-col gap-1 min-w-0 pr-4 text-left rounded-none"><div className="flex items-center gap-3">{display.mainRank && <span className="text-3xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">#{display.mainRank}</span>}<h3 className="text-2xl font-bold text-white truncate drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight">{song.title || song.name}</h3></div>{showArtist && <div className="text-lg font-medium text-gray-200 drop-shadow-md">{song.artist || song.creator}</div>}{showVisualMetadata && <div className="flex items-center gap-2 mt-2 rounded-none">{song.type && <span className={`text-xs font-bold px-2 py-0.5 border shadow-sm leading-none rounded-none ${song.type === 'Vocal' ? 'bg-pink-500/20 border-pink-500/30 text-pink-200' : 'bg-blue-500/20 border-blue-500/30 text-blue-200'}`}>{song.type}</span>}{song.dateAdded && <span className="text-xs font-medium px-2 py-0.5 bg-black/40 border border-white/10 text-gray-300 rounded-none">{formatDate(song.dateAdded)}</span>}{song.remixer && song.remixer !== 'N/A' && <span className="text-xs font-bold px-2 py-0.5 bg-indigo-500/20 border border-indigo-500/30 text-indigo-200 shadow-sm leading-none rounded-none">{song.remixer} Remix</span>}{song.list && <span className="text-[10px] font-black px-2 py-0.5 bg-sky-600/30 border border-sky-400/40 text-sky-100 shadow-lg rounded-none">{song.list}</span>}</div>}</div>
-            {!song.isLegacy && !song.isUnranked && song.tier && <div className={`flex flex-col items-center justify-center shrink-0 pl-6 border-l border-white/10 rounded-none ${isCondensed ? 'h-16' : 'h-20'}`}>{!hideTierText && <span className={`${isCondensed ? 'text-4xl' : 'text-5xl'} font-black block leading-none rounded-none`} style={display.specific.textStyle}>{song.tier}</span>}{showScore && <span className="text-lg font-bold text-white opacity-80 drop-shadow-md mt-[-2px] rounded-none">{song.score?.toFixed(2)}</span>}</div>}
+        <div className="relative z-10 flex w-full items-stretch rounded-none">
+          <div className="h-36 aspect-video shrink-0 relative overflow-hidden shadow-[4px_0_20px_rgba(0,0,0,0.5)] border-r border-white/10 group-hover:brightness-110 transition-all bg-black rounded-none self-center">
+            <img src={song.imageUrl || song.thumbnail} alt={song.title} className={`w-full h-full ${isSquare ? 'object-contain' : 'object-cover'} rounded-none`} onLoad={e => setIsSquare(e.currentTarget.naturalWidth === e.currentTarget.naturalHeight)} />
+          </div>
+          <div className="flex-1 flex justify-between items-center px-6 min-w-0 rounded-none py-4">
+            <div className="flex-1 flex flex-col gap-1 min-w-0 pr-4 text-left rounded-none">
+              <div className="flex items-center gap-3">
+                {display.mainRank !== null && (
+                  isEditing ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-sky-400 font-black text-xl">#</span>
+                      <input 
+                        key={`${song.title}-rank-input-${display.mainRank}-${song.tier}`}
+                        type="text" 
+                        inputMode="numeric"
+                        defaultValue={display.mainRank} 
+                        onKeyDown={handleRankConfirm}
+                        className="w-12 bg-white/10 border border-white/20 text-white text-2xl font-black rounded-none text-center outline-none focus:border-sky-500"
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-3xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">#{display.mainRank}</span>
+                  )
+                )}
+                {isEditing ? (
+                  <input 
+                    key={`${song.title}-title-input`}
+                    type="text" 
+                    defaultValue={song.title || song.name} 
+                    onBlur={(e) => onUpdateProp(song.title, 'title', e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.target as any).blur()}
+                    className="flex-1 bg-white/10 border border-white/20 text-white text-2xl font-bold p-1 rounded-none outline-none focus:border-sky-500"
+                  />
+                ) : (
+                  <h3 className="text-2xl font-bold text-white truncate drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight">{song.title || song.name}</h3>
+                )}
+              </div>
+              
+              {showArtist && (
+                <div className="text-lg text-gray-200 drop-shadow-md">
+                  {isEditing ? (
+                    <input 
+                      key={`${song.title}-artist-input`}
+                      type="text" 
+                      defaultValue={song.artist || song.creator} 
+                      onBlur={(e) => onUpdateProp(song.title, 'artist', e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.target as any).blur()}
+                      className="w-full bg-white/5 border border-white/10 text-white text-lg p-1 rounded-none outline-none focus:border-sky-500"
+                    />
+                  ) : (
+                    song.artist || song.creator
+                  )}
+                </div>
+              )}
+              
+              {showDetails ? (
+                <div className="flex flex-col text-[12px] text-white gap-1 mt-2 font-normal">
+                  {isEditing ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select 
+                          key={`${song.title}-type-select`}
+                          defaultValue={song.type} 
+                          onChange={(e) => onUpdateProp(song.title, 'type', e.target.value)}
+                          className="bg-white/5 border border-white/10 text-white p-1 text-[11px] rounded-none outline-none"
+                        >
+                          <option value="Vocal" className="bg-slate-900">Vocal</option>
+                          <option value="Instrumental" className="bg-slate-900">Instrumental</option>
+                        </select>
+                        <EditInput field="dateAdded" value={song.dateAdded} />
+                      </div>
+                      <EditInput field="remixer" value={remixer} />
+                      <div className="grid grid-cols-2 gap-2">
+                        <select 
+                          key={`${song.title}-status-select`}
+                          defaultValue={status} 
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            onUpdateProp(song.title, 'isMain', v === 'Main');
+                            onUpdateProp(song.title, 'isUnranked', v === 'Unranked');
+                          }}
+                          className="bg-white/5 border border-white/10 text-white p-1 text-[11px] rounded-none outline-none"
+                        >
+                          <option value="Main" className="bg-slate-900">Main</option>
+                          <option value="Unranked" className="bg-slate-900">Unranked</option>
+                          <option value="Legacy" className="bg-slate-900">Legacy</option>
+                        </select>
+                        <EditInput field="backgroundColor" value={bgColor} />
+                      </div>
+                      <EditInput field="imageUrl" value={song.imageUrl} />
+                      <EditInput field="link" value={song.link} />
+                      <EditInput field="duration" value={song.duration} />
+                    </>
+                  ) : (
+                    <>
+                      <div>{song.type || 'N/A'}</div>
+                      <div>{formatDate(song.dateAdded) || 'N/A'}</div>
+                      <div>{remixer}</div>
+                      <div>{status}</div>
+                      <div>{bgColor}</div>
+                      <div className="truncate">{song.imageUrl || 'N/A'}</div>
+                      <div className="truncate">{song.link || 'N/A'}</div>
+                      <div>{song.duration || 'N/A'}</div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                showVisualMetadata && !isEditing && (
+                  <div className="flex items-center gap-2 mt-2 rounded-none">
+                    {song.type && <span className={`text-xs font-bold px-2 py-0.5 border shadow-sm leading-none rounded-none ${song.type === 'Vocal' ? 'bg-pink-500/20 border-pink-500/30 text-pink-200' : 'bg-blue-500/20 border-blue-500/30 text-blue-200'}`}>{song.type}</span>}
+                    {song.dateAdded && <span className="text-xs font-medium px-2 py-0.5 bg-black/40 border border-white/10 text-gray-300 rounded-none">{formatDate(song.dateAdded)}</span>}
+                    {song.remixer && song.remixer !== 'N/A' && <span className="text-xs font-bold px-2 py-0.5 bg-indigo-500/20 border border-indigo-500/30 text-indigo-200 shadow-sm leading-none rounded-none">{song.remixer} Remix</span>}
+                    {song.list && <span className="text-[10px] font-black px-2 py-0.5 bg-sky-600/30 border border-sky-400/40 text-sky-100 shadow-lg rounded-none">{song.list}</span>}
+                  </div>
+                )
+              )}
+            </div>
+            {!song.isLegacy && !song.isUnranked && (
+              <div className={`flex flex-col items-center justify-center shrink-0 pl-6 border-l border-white/10 rounded-none h-full`}>
+                {isEditing ? (
+                  <select 
+                    key={`${song.title}-tier-select-${song.tier}`}
+                    defaultValue={song.tier} 
+                    onChange={(e) => onUpdateProp(song.title, 'tier', e.target.value)}
+                    className="bg-white/10 border border-white/20 text-white font-black text-2xl p-2 rounded-none outline-none focus:border-sky-500"
+                    style={display.specific.textStyle}
+                  >
+                    {TIER_ORDER.map(t => <option key={t} value={t} className="bg-slate-900">{t}</option>)}
+                  </select>
+                ) : (
+                  (!hideTierText || showDetails) && song.tier && <span className={`${isCondensed ? 'text-4xl' : (showDetails ? 'text-6xl' : 'text-5xl')} font-black block leading-none rounded-none`} style={display.specific.textStyle}>{song.tier}</span>
+                )}
+                {showScore && <span className="text-lg font-bold text-white opacity-80 drop-shadow-md mt-[-2px] rounded-none">{song.score?.toFixed(2)}</span>}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -127,5 +285,5 @@ export const SongGrid = ({ songs, onSongClick, isCapturing, ...settings }: any) 
   const mode = settings.layoutMode || 'standard';
   const cfg: any = { compact: { v: 'classic', ic: true, w: '500px', g: 'flex flex-col' }, grid: { v: 'grid', ic: true, w: '1280px', g: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4' }, standard: { v: 'grid', ic: false, w: '900px', g: 'flex flex-col gap-4 max-w-5xl' } }[mode] || { v: 'grid', ic: false, w: '900px', g: 'flex flex-col gap-4 max-w-5xl' };
   const gridCls = `${cfg.g} mx-auto pb-10 rounded-none ${isCapturing ? `w-[${cfg.w}]` : `w-full ${mode === 'grid' ? '' : `max-w-[${cfg.w}]`}`}`;
-  return <div className={gridCls}>{songs.map((s: any, i: number) => s.isSeparator ? <div key={i} className="col-span-full flex items-center gap-4 py-8 opacity-40 rounded-none"><div className="h-px bg-white/20 flex-1" /><b className="text-[10px] tracking-widest text-slate-500">{s.title.charAt(0).toUpperCase() + s.title.slice(1)}</b><div className="h-px bg-white/20 flex-1" /></div> : <SongItem key={`${s.rank}-${i}`} variant={cfg.v} song={s} onClick={() => onSongClick(s)} isForCapture={isCapturing} {...settings} isCompact={cfg.ic} />)}</div>;
+  return <div className={gridCls}>{songs.map((s: any, i: number) => s.isSeparator ? <div key={i} className="col-span-full flex items-center gap-4 py-8 opacity-40 rounded-none"><div className="h-px bg-white/20 flex-1" /><b className="text-[10px] tracking-widest text-slate-500">{s.title.charAt(0).toUpperCase() + s.title.slice(1)}</b><div className="h-px bg-white/20 flex-1" /></div> : <SongItem key={s.title} variant={cfg.v} song={s} onClick={() => onSongClick(s)} isForCapture={isCapturing} {...settings} isCompact={cfg.ic} />)}</div>;
 };

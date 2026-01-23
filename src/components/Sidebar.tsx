@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { formatDate } from '../utils';
 
@@ -39,7 +40,6 @@ export const Sidebar = (p: any) => {
                     </div>
                 </div>
                 <div className="flex bg-slate-900/40 border border-slate-700/50 rounded-none overflow-hidden">{['history-top1', 'history-changelog'].map(m => <NavBtn key={m} m={m} l={btns[m]} />)}</div>
-                <div className="flex bg-slate-900/40 border border-slate-700/50 rounded-none overflow-hidden"><NavBtn m="editor" l="Data Editor" c="purple" /></div>
                 <div className="ml-auto flex gap-2">
                     <button onClick={() => setOpen(!open)} className={`px-4 py-2 text-xs font-bold rounded-none border transition-all ${open ? 'bg-sky-600 border-sky-500 text-white' : 'bg-slate-900/40 border-slate-700/50 text-slate-400 hover:text-slate-200'}`}>Settings</button>
                     <button onClick={vs.selectedHistorySong ? p.onClearHistorySelection : p.onExportCsv} className={`px-4 py-2 text-xs font-bold rounded-none border transition-all ${vs.selectedHistorySong ? 'bg-slate-800 border-slate-700 text-gray-300' : 'bg-emerald-600/20 border-emerald-600/30 text-emerald-400 hover:bg-emerald-600/30'}`}>{vs.selectedHistorySong ? '← Back' : 'Export CSV'}</button>

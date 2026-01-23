@@ -112,7 +112,7 @@ export const ComparisonView: React.FC<{ allSongs: Song[]; isCapturing?: boolean 
                 </div>
                 <div className="bg-slate-900/40 border border-slate-700/50 rounded-none overflow-hidden text-sm text-gray-400">
                     <table className="w-full text-left rounded-none">
-                        <thead className="bg-slate-800/50 text-xs font-bold uppercase rounded-none">
+                        <thead className="bg-slate-800 text-xs font-bold rounded-none">
                             <tr><th className="px-4 py-3">Winner</th><th className="px-4 py-3">Loser</th></tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/50 rounded-none">
