@@ -58,7 +58,7 @@ export const SongDetailView = ({ song, historyFilterDate, isCapturing, songImage
 // ==========================================
 // 2. TOP 1 HISTORY VIEW (The Reigns)
 // ==========================================
-export const TopOneHistoryView = ({ snapshots, songsHistory, onSongSelect, songImageMap, songRemixerMap, isCapturing, maxItems, settings }: any) => {
+export const TopOneHistoryView = ({ snapshots, songsHistory, onSongSelect, songImageMap, isCapturing, maxItems, settings }: any) => {
   const reigns = useMemo(() => {
     const list: any[] = []; let cur: any = null;
     [...snapshots].sort((a, b) => a.date.getTime() - b.date.getTime()).forEach(snap => {
@@ -78,10 +78,12 @@ export const TopOneHistoryView = ({ snapshots, songsHistory, onSongSelect, songI
            </div>
            <SongItem 
               variant="grid" 
-              song={{ ...r, imageUrl: songImageMap.get(normalizeTitle(r.title)), remixer: songRemixerMap.get(normalizeTitle(r.title)), rank: 1, tier: 'S+' }} 
+              song={{ ...r, imageUrl: songImageMap.get(normalizeTitle(r.title)), rank: null, tier: undefined }} 
               onClick={() => onSongSelect(songsHistory.find((h: any) => normalizeTitle(h.title) === normalizeTitle(r.title)))} 
               isForCapture={isCapturing}
               {...settings}
+              showArtist={true}
+              showVisualMetadata={false}
               isCompact={false}
            />
         </div>
