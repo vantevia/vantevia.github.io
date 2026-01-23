@@ -55,7 +55,18 @@ export default function App() {
     rawSongs: isEditing ? localRawSongs : data.rawSongs
   }), [data, isEditing, localRawSongs]);
 
-  const { displayedSongs, displayedDemonLevels, uniqueArtists, remixerMap, historyMap, currentMaxEntries, selectedSongMetadata, globalNavigationList } = useProcessedData({ data: processedDataInput, settings, viewState, demonListType, demonListFilter });
+  const effectiveSettings = useMemo(() => ({
+    ...settings,
+    showAllSongs: isEditing ? true : settings.showAllSongs
+  }), [settings, isEditing]);
+
+  const { displayedSongs, displayedDemonLevels, uniqueArtists, remixerMap, historyMap, currentMaxEntries, selectedSongMetadata, globalNavigationList } = useProcessedData({ 
+    data: processedDataInput, 
+    settings: effectiveSettings, 
+    viewState, 
+    demonListType, 
+    demonListFilter 
+  });
 
   useEffect(() => {
     Promise.all([fetchSongData(), fetch('https://docs.google.com/spreadsheets/d/1jwBvS09EtK31B8uPRKMuCSTS-ghJYfRuVqfit1p_a7Q/export?format=csv&gid=477178938').then(r => r.text()), fetchDemonList()])
@@ -74,7 +85,6 @@ export default function App() {
     setIsEditing(prev => {
       const next = !prev;
       if (!next) {
-        // Exiting: Revert to exact server state
         setLocalRawSongs(data.rawSongs.map(s => ({ ...s })));
         setEditLog([]);
         setPendingLogEntry(null);
@@ -96,7 +106,6 @@ export default function App() {
       const targetIdx = newRank - 1;
       nextMain.splice(targetIdx, 0, movedSong);
       
-      // Tier adjustment based on neighbors
       const prevNeighbor = nextMain[targetIdx - 1];
       const nextNeighbor = nextMain[targetIdx + 1];
       let targetTier: Tier | undefined;
@@ -117,9 +126,6 @@ export default function App() {
 
       if (targetTier) movedSong.tier = targetTier;
 
-      // ENFORCE S+ RULES:
-      // 1. Rank #1 is always S+
-      // 2. Rank > #1 is never S+
       const finalMain = nextMain.map((s, idx) => {
         const song = { ...s, rank: idx + 1 };
         if (idx === 0) {
@@ -147,19 +153,49 @@ export default function App() {
     setLocalRawSongs(prev => {
       const idx = prev.findIndex(s => s.title === title);
       if (idx === -1) return prev;
+      
+      const songToUpdate = prev[idx];
+      const oldIsMain = songToUpdate.isMain;
+      const oldRank = songToUpdate.rank;
+      
       const next = prev.map(s => ({ ...s }));
       (next[idx] as any)[field] = value;
 
-      // If tier was manually changed, enforce S+ rules immediately
+      const newIsMain = next[idx].isMain;
+      const newIsUnranked = next[idx].isUnranked;
+
+      // Check if moved to Legacy from Main
+      if (oldIsMain && !newIsMain && !newIsUnranked) {
+        const logMsg = `${songToUpdate.title} removed`;
+        if (isAutoLog) {
+          setEditLog(log => [`${new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}: ${logMsg}`, ...log]);
+        } else {
+          setPendingLogEntry(logMsg);
+        }
+        
+        // Re-rank remaining main songs to fill the gap
+        next.forEach(s => {
+          if (s.isMain && s.rank > oldRank) {
+            s.rank -= 1;
+          }
+        });
+        next[idx].rank = 0; 
+      }
+
+      // Final pass: enforce S+ rules and sequential ranking consistency
       const mainSorted = next.filter(s => s.isMain).sort((a, b) => a.rank - b.rank);
       mainSorted.forEach((s, i) => {
-        if (i === 0) s.tier = 'S+';
-        else if (s.tier === 'S+') s.tier = 'S';
+        const targetIdx = next.findIndex(orig => orig.title === s.title);
+        if (targetIdx !== -1) {
+          next[targetIdx].rank = i + 1;
+          if (i === 0) next[targetIdx].tier = 'S+';
+          else if (next[targetIdx].tier === 'S+') next[targetIdx].tier = 'S';
+        }
       });
 
       return next;
     });
-  }, []);
+  }, [isAutoLog]);
 
   const handleManualLog = () => {
     if (pendingLogEntry) {
@@ -223,14 +259,14 @@ export default function App() {
       songs={captureLimit ? displayedSongs.slice(0, captureLimit) : displayedSongs} 
       onSongClick={(s: any) => isEditing ? null : selSong(historyMap.get(normalizeTitle(s.title)) || null)} 
       isCapturing={isCapturing} 
-      {...settings} 
+      {...effectiveSettings} 
       isEditing={isEditing}
       onUpdateRank={handleRankMove}
       onUpdateProp={handleUpdateProp}
     />,
     stats: <StatsView songs={displayedSongs} isCapturing={isCapturing} />,
     comparison: <ComparisonView allSongs={globalNavigationList} isCapturing={isCapturing} />,
-    'history-top1': <TopOneHistoryView snapshots={data.snapshots} songsHistory={data.histories} maxItems={captureLimit} onSongSelect={selSong} songImageMap={data.thumbnailMap} songRemixerMap={remixerMap} isCapturing={isCapturing} settings={settings} />,
+    'history-top1': <TopOneHistoryView snapshots={data.snapshots} songsHistory={data.histories} maxItems={captureLimit} onSongSelect={selSong} songImageMap={data.thumbnailMap} songRemixerMap={remixerMap} isCapturing={isCapturing} settings={effectiveSettings} />,
     'history-changelog': <ChangelogView snapshots={data.snapshots} songImageMap={data.thumbnailMap} remixerMap={remixerMap} artistMap={data.artistMap} isCapturing={isCapturing} />,
     demonlist: (
       <>
@@ -294,7 +330,7 @@ export default function App() {
             <div className="flex-1 w-full">
               <TopBar 
                 viewState={viewState} 
-                settings={settings} 
+                settings={effectiveSettings} 
                 demonListType={demonListType} 
                 dataSnapshots={data.snapshots} 
                 uniqueArtists={uniqueArtists} 

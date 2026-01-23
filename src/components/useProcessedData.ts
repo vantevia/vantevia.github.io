@@ -1,3 +1,4 @@
+
 import { useMemo } from 'react';
 import { Song, RawSong, SongHistory, normalizeTitle, calculateTierScores } from '../utils';
 
@@ -37,26 +38,43 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
         if (loading || !rawSongs.length) return [];
         const currentSet = new Set(mainSongs.map((s: any) => normalizeTitle(s.title)));
         const unrankedSet = new Set(unrankedSongs.map((s: any) => normalizeTitle(s.title)));
+        const historySet = new Set(histories.map((h: any) => normalizeTitle(h.title)));
         
         const lastSeenMap = new Map<string, number>();
         snapshots.forEach((snap: any) => snap.songs.forEach((s: any) => lastSeenMap.set(normalizeTitle(s.title), snap.date.getTime())));
 
-        return histories
+        // Legacy Base 1: From Histories
+        const baseFromHistory = histories
             .filter((h: any) => !currentSet.has(normalizeTitle(h.title)) && !unrankedSet.has(normalizeTitle(h.title)))
             .map((h: any) => {
                 const n = normalizeTitle(h.title), r = rawMap.get(n);
-                const lastTime = lastSeenMap.get(n) || 0;
+                // If the song is in rawMap but not main/unranked, treat it as "just removed" so it hits top of legacy
+                let lastTime = lastSeenMap.get(n) || 0;
+                if (r && !r.isMain && !r.isUnranked) {
+                  lastTime = Date.now();
+                }
+                
                 return {
                     ...r, title: h.title, artist: h.artist, isLegacy: true, isMain: false, rank: 0,
-                    tier: undefined, // Strip tier from legacy
+                    tier: undefined,
                     imageUrl: thumbnailMap.get(n) || 'https://via.placeholder.com/128x72.png?text=No+Image',
                     removedDate: new Date(lastTime),
                     lastSeenTime: lastTime,
                     lastRank: h.history[h.history.length - 1]?.rank || 9999
                 } as Song;
-            })
+            });
+
+        // Legacy Base 2: Locally present but not main/unranked and not in history (uncommon)
+        const baseFromRaw = rawSongs
+            .filter((r: any) => !r.isMain && !r.isUnranked && !historySet.has(normalizeTitle(r.title)))
+            .map((r: any) => ({
+                ...r, isLegacy: true, isMain: false, rank: 0, tier: undefined,
+                removedDate: new Date(), lastSeenTime: Date.now(), lastRank: 9999
+            } as Song));
+
+        return [...baseFromHistory, ...baseFromRaw]
             .sort((a: any, b: any) => (b.lastSeenTime - a.lastSeenTime) || (a.lastRank - b.lastRank));
-    }, [histories, mainSongs, unrankedSongs, snapshots, loading, rawMap, thumbnailMap]);
+    }, [histories, mainSongs, unrankedSongs, snapshots, loading, rawMap, thumbnailMap, rawSongs]);
 
     // 3. Displayed List Logic
     const displayedSongs = useMemo(() => {
@@ -64,7 +82,8 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
         let base: Song[] = [];
         const scores = calculateTierScores(mainSongs);
 
-        if (settings.showRevisionHistory && snapshots.length > 0) {
+        // Forced in Edit mode via settings override in App (passed as settings.showAllSongs: true)
+        if (settings.showRevisionHistory && snapshots.length > 0 && !settings.showAllSongs) {
             const snap = snapshots[settings.selectedRevisionIndex];
             if (!snap) return [];
 
@@ -79,7 +98,6 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
             }).map((s, i) => [normalizeTitle(s.title), i + 1]));
 
             base = snap.songs.map((s: any) => {
-                // FIXED: Removed 'h = historyMap.get(n)' as it was unused
                 const n = normalizeTitle(s.title), r = rawMap.get(n);
                 return {
                     ...r, ...s, imageUrl: thumbnailMap.get(n) || 'https://via.placeholder.com/128x72.png?text=No+Image',
@@ -95,8 +113,7 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
             const mainWithScores = mainSongs.map(s => ({ ...s, score: scores.get(normalizeTitle(s.title)) }));
             
             if (settings.showAllSongs) {
-                // Seamless combination with sequential rankings
-                base = [...mainWithScores, ...legacySongs, ...unrankedSongs].map((s, i) => ({ ...s, rank: i + 1 }));
+                base = [...mainWithScores, ...legacySongs, ...unrankedSongs].map((s, i) => ({ ...s, rank: s.rank || (i + 1) }));
             } else {
                 base = mainWithScores;
             }
