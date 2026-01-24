@@ -1,6 +1,6 @@
 
 import { useMemo } from 'react';
-import { Song, RawSong, SongHistory, normalizeTitle, calculateTierScores } from '../utils';
+import { Song, RawSong, SongHistory, normalizeTitle } from '../utils';
 
 const DEMON_LIST_HIERARCHY = ["Pointercrate", "Verified", "Verification Progress", "Completed", ">50% Complete", "<50% Complete", "0% Complete"];
 
@@ -48,9 +48,13 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
             .filter((h: any) => !currentSet.has(normalizeTitle(h.title)) && !unrankedSet.has(normalizeTitle(h.title)))
             .map((h: any) => {
                 const n = normalizeTitle(h.title), r = rawMap.get(n);
-                // If the song is in rawMap but not main/unranked, treat it as "just removed" so it hits top of legacy
-                let lastTime = lastSeenMap.get(n) || 0;
-                if (r && !r.isMain && !r.isUnranked) {
+                
+                // Prioritize historical last seen date. 
+                // Only use Date.now() if it's explicitly legacy in raw data but NOT found in history snapshots.
+                const historicalLastTime = lastSeenMap.get(n);
+                let lastTime = historicalLastTime || 0;
+                
+                if (!historicalLastTime && r && !r.isMain && !r.isUnranked) {
                   lastTime = Date.now();
                 }
                 
@@ -80,7 +84,6 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
     const displayedSongs = useMemo(() => {
         if (loading || !rawSongs.length) return [];
         let base: Song[] = [];
-        const scores = calculateTierScores(mainSongs);
 
         // Forced in Edit mode via settings override in App (passed as settings.showAllSongs: true)
         if (settings.showRevisionHistory && snapshots.length > 0 && !settings.showAllSongs) {
@@ -102,7 +105,6 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
                 return {
                     ...r, ...s, imageUrl: thumbnailMap.get(n) || 'https://via.placeholder.com/128x72.png?text=No+Image',
                     tier: r?.tier,
-                    score: scores.get(n),
                     currentRank: currRankMap.get(n),
                     relativeHistoricalRank: histRelMap.get(n),
                     relativeCurrentRank: currRelMap.get(n)
@@ -110,18 +112,19 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
             });
             if (settings.revisionSortMode === 'current') base.sort((a, b) => (a.currentRank || 9e5) - (b.currentRank || 9e5));
         } else {
-            const mainWithScores = mainSongs.map(s => ({ ...s, score: scores.get(normalizeTitle(s.title)) }));
+            const mainBase = mainSongs.map(s => ({ ...s }));
             
             if (settings.showAllSongs) {
-                base = [...mainWithScores, ...legacySongs, ...unrankedSongs].map((s, i) => ({ ...s, rank: s.rank || (i + 1) }));
+                base = [...mainBase, ...legacySongs, ...unrankedSongs].map((s, i) => ({ ...s, rank: s.rank || (i + 1) }));
             } else {
-                base = mainWithScores;
+                base = mainBase;
             }
         }
 
         let filtered = base.filter(s => s.isSeparator || (
             (settings.songTypeFilter === 'all' || s.type === settings.songTypeFilter) &&
-            (settings.artistFilter === 'all' || s.artist === settings.artistFilter)
+            (settings.artistFilter === 'all' || s.artist === settings.artistFilter) &&
+            (settings.tierFilter === 'all' || s.tier === settings.tierFilter)
         ));
 
         if (settings.rankDisplayMode === 'group' && settings.songTypeFilter !== 'all' && !settings.showRevisionHistory) {
@@ -160,7 +163,6 @@ export const useProcessedData = ({ data, settings, viewState, demonListType, dem
         const counts: Record<string, number | undefined> = { 
             visual: displayedSongs.length, 
             demonlist: displayedDemonLevels.length, 
-            'history-top1': snapshots.length, 
             'history-changelog': snapshots.filter((s: any) => s.changelogEntries?.length).length 
         };
         return counts[viewState.active as string];
