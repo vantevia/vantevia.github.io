@@ -1,13 +1,11 @@
-
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { RawSong, DemonLevel, DisplaySettings, ViewMode, DemonListType, fetchSongData, fetchDemonList, parseHistoryData, downloadCsv, normalizeTitle, SongHistory, saveSongData, appendChangelog, TIER_ORDER, Tier } from './utils';
 import { useScreenshot, ScreenshotModal } from './components/ScreenshotModal';
 import { useProcessedData } from './components/useProcessedData';
-import { SongDetailView, TopOneHistoryView, ChangelogView } from './components/HistoryViews';
+import { SongDetailView, ChangelogView } from './components/HistoryViews';
 import { SongItem, SkeletonTable, SongGrid } from './components/SongItem';
 import { StatsView } from './components/StatsView';
 import { Sidebar as TopBar } from './components/Sidebar';
-import { ComparisonView } from './components/ComparisonView';
 
 const BrandedTitle = () => (
   <div className="text-right">
@@ -28,8 +26,8 @@ export default function App() {
   const [data, setData] = useState({ rawSongs: [] as RawSong[], thumbnailMap: new Map(), artistMap: new Map(), remixerMap: new Map(), demonLevels: { verified: [] } as Record<string, DemonLevel[]>, snapshots: [] as any[], histories: [] as SongHistory[], loading: true, error: null as string | null });
   
   const [settings, setSettings] = useState<DisplaySettings>({
-    showDetails: false, hideTierText: true, isCompact: false, layoutMode: 'standard', useTierBackground: true, useTierColorsForBorder: true, useCustomColors: true, showScore: false,
-    font: 'montserrat', songTypeFilter: 'all', artistFilter: 'all', rankDisplayMode: 'original', sortMode: 'rank', historyFilterDate: new Date(2023, 4, 5),
+    showDetails: false, hideTierText: true, isCompact: false, layoutMode: 'standard',
+    font: 'montserrat', songTypeFilter: 'all', tierFilter: 'all', artistFilter: 'all', rankDisplayMode: 'original', sortMode: 'rank', historyFilterDate: new Date(2023, 4, 5),
     showAllSongs: false, showRevisionHistory: false, selectedRevisionIndex: 0, revisionSortMode: 'revision', showRevisionCurrentRank: true, showRevisionRelativeHistoricalRank: true, showRevisionRelativeCurrentRank: true, revisionMainRankMode: 'revision', showArtist: true, showVisualMetadata: true
   });
 
@@ -50,6 +48,26 @@ export default function App() {
   const { isCapturing, isSaving, isCopying, capture } = useScreenshot();
   const contentRef = useRef<HTMLDivElement>(null);
 
+  const loadData = useCallback(async () => {
+    try {
+      const [songs, hist, demons] = await Promise.all([
+        fetchSongData(), 
+        fetch('https://docs.google.com/spreadsheets/d/1jwBvS09EtK31B8uPRKMuCSTS-ghJYfRuVqfit1p_a7Q/export?format=csv&gid=477178938').then(r => r.text()), 
+        fetchDemonList()
+      ]);
+      const hData = parseHistoryData(hist, songs.artistMap);
+      setData({ ...songs, demonLevels: demons, snapshots: hData.snapshots, histories: hData.histories, loading: false, error: null });
+      setLocalRawSongs(songs.rawSongs.map(s => ({ ...s })));
+      setSettings(s => ({ ...s, selectedRevisionIndex: hData.snapshots.length - 1 }));
+    } catch (e) {
+      setData(prev => ({ ...prev, loading: false, error: 'Failed to load data.' }));
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   const processedDataInput = useMemo(() => ({
     ...data,
     rawSongs: isEditing ? localRawSongs : data.rawSongs
@@ -68,15 +86,13 @@ export default function App() {
     demonListFilter 
   });
 
-  useEffect(() => {
-    Promise.all([fetchSongData(), fetch('https://docs.google.com/spreadsheets/d/1jwBvS09EtK31B8uPRKMuCSTS-ghJYfRuVqfit1p_a7Q/export?format=csv&gid=477178938').then(r => r.text()), fetchDemonList()])
-      .then(([songs, hist, demons]) => {
-        const hData = parseHistoryData(hist, songs.artistMap);
-        setData({ ...songs, demonLevels: demons, snapshots: hData.snapshots, histories: hData.histories, loading: false, error: null });
-        setLocalRawSongs(songs.rawSongs.map(s => ({ ...s })));
-        setSettings(s => ({ ...s, selectedRevisionIndex: hData.snapshots.length - 1 }));
-      })
-      .catch(() => setData(prev => ({ ...prev, loading: false, error: 'Failed to load data.' })));
+  const handleUpdateSetting = useCallback((key: string, val: any) => {
+    setSettings(prev => ({ ...prev, [key]: val }));
+  }, []);
+
+  const handleNavTo = useCallback((m: any) => { 
+    setViewState({ active: m, selectedHistorySong: null }); 
+    window.scrollTo({ top: 0, behavior: 'instant' }); 
   }, []);
 
   useEffect(() => { document.body.className = `font-${settings.font}`; }, [settings.font]);
@@ -164,7 +180,6 @@ export default function App() {
       const newIsMain = next[idx].isMain;
       const newIsUnranked = next[idx].isUnranked;
 
-      // Check if moved to Legacy from Main
       if (oldIsMain && !newIsMain && !newIsUnranked) {
         const logMsg = `${songToUpdate.title} removed`;
         if (isAutoLog) {
@@ -172,8 +187,6 @@ export default function App() {
         } else {
           setPendingLogEntry(logMsg);
         }
-        
-        // Re-rank remaining main songs to fill the gap
         next.forEach(s => {
           if (s.isMain && s.rank > oldRank) {
             s.rank -= 1;
@@ -182,7 +195,6 @@ export default function App() {
         next[idx].rank = 0; 
       }
 
-      // Final pass: enforce S+ rules and sequential ranking consistency
       const mainSorted = next.filter(s => s.isMain).sort((a, b) => a.rank - b.rank);
       mainSorted.forEach((s, i) => {
         const targetIdx = next.findIndex(orig => orig.title === s.title);
@@ -210,7 +222,12 @@ export default function App() {
       await saveSongData(localRawSongs);
       if (editLog.length) await appendChangelog([...editLog].reverse().map(x => x));
       alert('Changes saved successfully!');
-      window.location.reload();
+      
+      // Refresh data and reset UI state without reloading the page
+      await loadData();
+      setIsEditing(false);
+      setEditLog([]);
+      setPendingLogEntry(null);
     } catch (e: any) {
       alert(`Save failed: ${e.message}`);
     } finally {
@@ -264,9 +281,7 @@ export default function App() {
       onUpdateRank={handleRankMove}
       onUpdateProp={handleUpdateProp}
     />,
-    stats: <StatsView songs={displayedSongs} isCapturing={isCapturing} />,
-    comparison: <ComparisonView allSongs={globalNavigationList} isCapturing={isCapturing} />,
-    'history-top1': <TopOneHistoryView snapshots={data.snapshots} songsHistory={data.histories} maxItems={captureLimit} onSongSelect={selSong} songImageMap={data.thumbnailMap} songRemixerMap={remixerMap} isCapturing={isCapturing} settings={effectiveSettings} />,
+    stats: <StatsView songs={displayedSongs} isCapturing={isCapturing} onSetSettings={handleUpdateSetting} onNavTo={handleNavTo} />,
     'history-changelog': <ChangelogView snapshots={data.snapshots} songImageMap={data.thumbnailMap} remixerMap={remixerMap} artistMap={data.artistMap} isCapturing={isCapturing} />,
     demonlist: (
       <>
@@ -311,10 +326,6 @@ export default function App() {
     )
   };
 
-  const handleUpdateSetting = useCallback((key: string, val: any) => {
-    setSettings(prev => ({ ...prev, [key]: val }));
-  }, []);
-
   return (
     <div className="min-h-screen text-white p-0 flex flex-col items-stretch">
       {!isCapturing && (
@@ -336,7 +347,7 @@ export default function App() {
                 uniqueArtists={uniqueArtists} 
                 isSaving={isSaving} 
                 isCopying={isCopying} 
-                onNavTo={(m: any) => { setViewState({ active: m, selectedHistorySong: null }); window.scrollTo({ top: 0, behavior: 'instant' }); }} 
+                onNavTo={handleNavTo} 
                 onSetDemonListType={setDemonListType} 
                 onSetSettings={handleUpdateSetting} 
                 onRequestCapture={(a: any) => setCaptureModal({ isOpen: true, action: a })} 

@@ -56,45 +56,7 @@ export const SongDetailView = ({ song, historyFilterDate, isCapturing, songImage
 };
 
 // ==========================================
-// 2. TOP 1 HISTORY VIEW (The Reigns)
-// ==========================================
-export const TopOneHistoryView = ({ snapshots, songsHistory, onSongSelect, songImageMap, isCapturing, maxItems, settings }: any) => {
-  const reigns = useMemo(() => {
-    const list: any[] = []; let cur: any = null;
-    [...snapshots].sort((a, b) => a.date.getTime() - b.date.getTime()).forEach(snap => {
-      const top = snap.songs.find((s: any) => s.rank === 1);
-      if (!top) return;
-      if (!cur || normalizeTitle(cur.title) !== normalizeTitle(top.title)) { if (cur) cur.endDate = snap.date; cur = { ...top, startDate: snap.date, endDate: null }; list.push(cur); }
-    });
-    return (maxItems ? list.reverse().slice(0, maxItems) : list.reverse());
-  }, [snapshots, maxItems]);
-
-  return (
-    <div className={`space-y-6 ${isCapturing ? '' : 'pr-2'} max-w-5xl mx-auto rounded-none`}>
-      {reigns.map((r, i) => (
-        <div key={i} className="flex flex-col gap-2 rounded-none">
-           <div className="px-4 py-1.5 bg-sky-600/20 border-l-4 border-sky-500 text-sky-200 text-sm font-bold w-fit rounded-none">
-             {formatDate(r.startDate)} — {r.endDate ? formatDate(r.endDate) : 'Present'}
-           </div>
-           <SongItem 
-              variant="grid" 
-              song={{ ...r, imageUrl: songImageMap.get(normalizeTitle(r.title)), rank: null, tier: undefined }} 
-              onClick={() => onSongSelect(songsHistory.find((h: any) => normalizeTitle(h.title) === normalizeTitle(r.title)))} 
-              isForCapture={isCapturing}
-              {...settings}
-              showArtist={true}
-              showVisualMetadata={false}
-              isCompact={false}
-           />
-        </div>
-      ))}
-      {!reigns.length && <p className="text-center text-gray-400 py-10 font-semibold rounded-none">No rankings found.</p>}
-    </div>
-  );
-};
-
-// ==========================================
-// 3. CHANGELOG VIEW (The Global Feed)
+// 2. CHANGELOG VIEW (The Global Feed)
 // ==========================================
 const ICONS = { move: ['↕', 'sky'], swap: ['⇄', 'purple'], place: ['+', 'green'], remove: ['×', 'red'] };
 

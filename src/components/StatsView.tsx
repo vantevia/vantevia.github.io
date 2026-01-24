@@ -1,49 +1,95 @@
-
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { getTierStyles, TIER_ORDER } from '../utils';
 
-export const StatsView = ({ songs, isCapturing }: any) => {
-  const s = useMemo(() => {
-    const r: any = { t: 0, bt: {}, ba: {}, ty: { Vocal: 0, Instrumental: 0 } };
-    songs.forEach((x: any) => {
-      if (x.isSeparator) return;
-      r.t++; 
-      if (x.tier) {
-        r.bt[x.tier] = (r.bt[x.tier] || 0) + 1;
-      }
-      r.ba[x.artist] = (r.ba[x.artist] || 0) + 1; 
-      r.ty[x.type] = (r.ty[x.type] || 0) + 1;
-    });
-    return { ...r, top: Object.entries(r.ba).sort((a: any, b: any) => b[1] - a[1]).slice(0, 50) };
+// Move outside to prevent re-creation on every render
+const MetricRow = ({ l, v, c, p, onClick }: any) => (
+  <div 
+    onClick={onClick}
+    className={`flex items-center justify-between py-2 px-3 group rounded-none ${onClick ? 'cursor-pointer hover:bg-white/5 transition-colors' : ''}`}
+  >
+    <span className={`text-xl md:text-2xl font-bold transition-colors ${onClick ? 'group-hover:text-white' : ''} text-gray-300 flex items-center gap-1`}>
+      <span className="capitalize">{l}</span>:
+      <span className={`text-${c || 'white'} font-black text-3xl md:text-4xl ml-2`}>{v}</span>
+    </span>
+    {p !== undefined && <span className="text-base md:text-lg text-slate-500 font-mono font-bold">({p.toFixed(0)}%)</span>}
+  </div>
+);
+
+export const StatsView = ({ songs, isCapturing, onSetSettings, onNavTo }: any) => {
+  const [showTopArtists, setShowTopArtists] = useState(false);
+
+  // Consolidated single-pass calculation
+  const { stats, top, maxT } = useMemo(() => {
+    const acc = { t: 0, bt: {} as any, ba: {} as any, ty: { Vocal: 0, Instrumental: 0 } };
+    
+    for (const x of songs) {
+      if (x.isSeparator) continue;
+      acc.t++;
+      if (x.tier) acc.bt[x.tier] = (acc.bt[x.tier] || 0) + 1;
+      acc.ba[x.artist] = (acc.ba[x.artist] || 0) + 1;
+      acc.ty[x.type as 'Vocal' | 'Instrumental'] = (acc.ty[x.type as 'Vocal' | 'Instrumental'] || 0) + 1;
+    }
+
+    return {
+      stats: acc,
+      maxT: Math.max(...Object.values(acc.bt) as number[], 1),
+      top: Object.entries(acc.ba).sort((a: any, b: any) => b[1] - a[1]).slice(0, 50)
+    };
   }, [songs]);
 
-  const maxT = Math.max(...Object.values(s.bt) as number[], 1), maxA = s.top[0]?.[1] || 1;
-  const Card = ({ l, v, c, p }: any) => <div className="bg-slate-900/40 border border-slate-700/50 p-6 rounded-none flex flex-col items-center justify-center shadow-lg"><span className="text-slate-400 text-[10px] font-bold tracking-widest">{l}</span><span className={`text-3xl md:text-4xl font-black mt-2 text-${c || 'white'}`}>{v}</span>{p && <span className="text-xs text-slate-500 mt-1 font-mono">{(v / s.t * 100).toFixed(1)}%</span>}</div>;
+  const navFilter = (key: string, val: string) => {
+    onSetSettings(key, val);
+    onNavTo('visual');
+  };
 
   return (
-    <div className={`w-full max-w-6xl mx-auto space-y-6 animate-in fade-in duration-300 rounded-none ${isCapturing ? 'p-4' : ''}`}>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-none">
-        <Card l="Total Songs" v={s.t} /> <Card l="Unique Artists" v={Object.keys(s.ba).length} c="purple-400" />
-        <Card l="Vocal" v={s.ty.Vocal} c="pink-400" p /> <Card l="Instrumental" v={s.ty.Instrumental} c="blue-400" p />
+    <div className={`w-full max-w-4xl mx-auto space-y-10 animate-in fade-in duration-300 rounded-none ${isCapturing ? 'p-4' : ''}`}>
+      <div className="bg-slate-900/40 border border-slate-700/50 p-8 shadow-lg space-y-2">
+        <MetricRow l="Songs" v={stats.t} />
+        <MetricRow l="Vocal" v={stats.ty.Vocal} c="pink-400" p={(stats.ty.Vocal / stats.t) * 100} onClick={() => navFilter('songTypeFilter', 'Vocal')} />
+        <MetricRow l="Instrumental" v={stats.ty.Instrumental} c="blue-400" p={(stats.ty.Instrumental / stats.t) * 100} onClick={() => navFilter('songTypeFilter', 'Instrumental')} />
+        <MetricRow l="Unique Artists" v={Object.keys(stats.ba).length} c="purple-400" onClick={() => setShowTopArtists(!showTopArtists)} />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 rounded-none">
-        <div className="bg-slate-900/40 border border-slate-700/50 p-6 rounded-none shadow-lg">
-          <h3 className="text-lg font-bold mb-6 border-b border-slate-700/50 pb-2 rounded-none">Tier Distribution</h3>
-          <div className="space-y-3 rounded-none">{TIER_ORDER.map(t => {
-            const c = s.bt[t] || 0; if (c === 0 && !isCapturing) return null; const st = getTierStyles(t);
-            return (
-              <div key={t} className="flex items-center gap-4 rounded-none"><div className="w-12 text-right font-black text-lg" style={st.textStyle}>{t}</div>
-                <div className="flex-1 h-8 bg-slate-800/50 rounded-none relative flex items-center overflow-hidden"><div className="h-full absolute left-0 top-0 rounded-none" style={{ width: `${(c / maxT) * 100}%`, ...st.backgroundStyle, opacity: 0.8 }} /><span className="relative z-10 ml-3 text-sm font-bold text-white shadow-black drop-shadow-md">{c}</span></div>
-              </div>
-            );
-          })}</div>
+
+      <div className="grid grid-cols-1 gap-10">
+        <div className="bg-slate-900/40 border border-slate-700/50 p-6 shadow-lg">
+          <h3 className="text-xl font-black mb-6 border-b border-slate-700/50 pb-3 tracking-tight text-slate-300">Tier Distribution</h3>
+          <div className="space-y-3">
+            {TIER_ORDER.map(t => {
+              const count = stats.bt[t] || 0;
+              if (count === 0 && !isCapturing) return null;
+              const st = getTierStyles(t);
+              return (
+                <div key={t} onClick={() => navFilter('tierFilter', t)} className="flex items-center gap-4 group/tier cursor-pointer hover:bg-white/5 p-1 transition-colors">
+                  <div className="w-12 text-right font-black text-2xl md:text-3xl" style={st.textStyle}>{t}</div>
+                  <div className="flex-1 h-9 bg-slate-800/50 relative flex items-center overflow-hidden">
+                    <div className="h-full absolute left-0 top-0 transition-all duration-1000" style={{ width: `${(count / maxT) * 100}%`, ...st.backgroundStyle, opacity: 0.85 }} />
+                    <span className="relative z-10 ml-4 text-lg md:text-xl font-black text-white drop-shadow-lg">{count}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        <div className="bg-slate-900/40 border border-slate-700/50 p-6 rounded-none shadow-lg h-full max-h-[800px] flex flex-col">
-          <h3 className="text-lg font-bold mb-6 border-b border-slate-700/50 pb-2 rounded-none">Top Artists</h3>
-          <div className={`space-y-4 rounded-none ${!isCapturing && 'overflow-y-auto pr-2 custom-scrollbar flex-1'}`}>{s.top.map(([a, c]: any, i: number) => (
-            <div key={a} className="flex flex-col gap-1 group rounded-none"><div className="flex justify-between text-sm font-semibold text-gray-300 rounded-none"><span className="truncate pr-2 group-hover:text-white rounded-none"><span className="text-slate-500 mr-2 w-5 inline-block text-right">{i + 1}.</span> {a}</span><span className="text-sky-400 font-bold">{c}</span></div><div className="w-full h-1.5 bg-slate-800 rounded-none overflow-hidden"><div className="h-full bg-sky-600 group-hover:bg-sky-400 transition-all rounded-none" style={{ width: `${(c / maxA) * 100}%` }} /></div></div>
-          ))}</div>
-        </div>
+
+        {(showTopArtists || isCapturing) && (
+          <div className="bg-slate-900/40 border border-slate-700/50 p-8 shadow-lg animate-in slide-in-from-top-4 duration-300">
+            <div className="flex justify-between items-center mb-8 border-b border-slate-700/50 pb-4">
+              <h3 className="text-2xl font-black text-slate-300">Top Artists</h3>
+              {!isCapturing && <button onClick={() => setShowTopArtists(false)} className="text-xs font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors">Close</button>}
+            </div>
+            <div className={`grid grid-cols-1 gap-y-4 ${!isCapturing ? 'max-h-[600px] overflow-y-auto pr-4 custom-scrollbar' : ''}`}>
+              {top.map(([a, count]: any, i: number) => (
+                <div key={a} className="flex items-center justify-between text-lg font-bold group border-b border-slate-800/40 pb-2">
+                  <span className="truncate pr-4 text-gray-300 group-hover:text-white transition-colors">
+                    <span className="text-slate-500 mr-4 w-8 inline-block text-right font-mono text-sm">{i + 1}.</span> {a}
+                  </span>
+                  <span className="text-sky-400 font-black text-2xl">{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
