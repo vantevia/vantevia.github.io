@@ -1,181 +1,68 @@
-
 import { useMemo } from 'react';
-import { Song, RawSong, SongHistory, normalizeTitle } from '../utils';
+import { normalizeTitle as nt, getCompositeKey as gk } from '../utils';
 
-const DEMON_LIST_HIERARCHY = ["Pointercrate", "Verified", "Verification Progress", "Completed", ">50% Complete", "<50% Complete", "0% Complete"];
+const DL_HIER = ["Pointercrate", "Verified", "Verification Progress", "Completed", ">50% Complete", "<50% Complete", "0% Complete"];
 
-export const useProcessedData = ({ data, settings, viewState, demonListType, demonListFilter }: any) => {
-    const { rawSongs, snapshots, histories, thumbnailMap, loading } = data;
+export const useProcessedData = ({ data: d, settings: s, viewState: vs, demonListType: dt, demonListFilter: df }: any) => {
+    const { rawSongs: raw, loading: l, changelog: cl } = d;
 
-    // 1. Fundamental Maps for O(1) lookups
-    const rawMap = useMemo(() => new Map<string, RawSong>(rawSongs.map((s: any) => [normalizeTitle(s.title), s])), [rawSongs]);
-    const historyMap = useMemo(() => new Map<string, SongHistory>(histories.map((h: any) => [normalizeTitle(h.title), h])), [histories]);
+    const uniqueArtists = useMemo(() => [...new Set((raw||[]).filter((r:any)=>r.artist && r.artist!=='N/A').map((r:any)=>r.artist))].sort((a:any,b:any)=>a.localeCompare(b)), [raw]);
 
-    const remixerMap = useMemo(() => {
-        const m = new Map<string, string>(data.remixerMap);
-        rawSongs.forEach((s: any) => s.remixer?.trim() && s.remixer !== 'N/A' && m.set(normalizeTitle(s.title), s.remixer));
-        return m;
-    }, [rawSongs, data.remixerMap]);
+    const main = useMemo(() => raw.filter((r:any)=>r.isMain).sort((a:any,b:any)=>a.rank-b.rank), [raw]);
+    const unranked = useMemo(() => raw.filter((r:any)=>r.isUnranked).map((r:any)=>({...r, tier:undefined})).sort((a:any,b:any)=>(new Date(a.dateAdded||0).getTime())-(new Date(b.dateAdded||0).getTime())), [raw]);
+    const legacy = useMemo(() => (l||!raw.length) ? [] : raw.filter((r:any)=>!r.isMain&&!r.isUnranked).map((r:any)=>({...r, isLegacy:true, isMain:false, tier:undefined, removedDate:new Date(), lastSeenTime:Date.now(), lastRank:9999})).sort((a:any,b:any)=>a.rank-b.rank), [raw, l]);
 
-    const uniqueArtists = useMemo(() => {
-        const set = new Set<string>();
-        rawSongs.forEach((s: any) => s.artist && s.artist !== 'N/A' && set.add(s.artist));
-        histories.forEach((h: any) => h.artist && h.artist !== 'N/A' && set.add(h.artist));
-        return Array.from(set).sort((a, b) => a.localeCompare(b));
-    }, [rawSongs, histories]);
-
-    // 2. Primary List Definitions
-    const mainSongs = useMemo(() => rawSongs.filter((s: any) => s.isMain).sort((a: any, b: any) => a.rank - b.rank), [rawSongs]);
-    const unrankedSongs = useMemo(() => 
-        rawSongs
-            .filter((s: any) => s.isUnranked)
-            .map((s: any) => ({ ...s, tier: undefined })) // Strip tier from unranked
-            .sort((a: any, b: any) => (new Date(a.dateAdded || 0).getTime()) - (new Date(b.dateAdded || 0).getTime())), 
-        [rawSongs]
-    );
-
-    const legacySongs = useMemo(() => {
-        if (loading || !rawSongs.length) return [];
-        const currentSet = new Set(mainSongs.map((s: any) => normalizeTitle(s.title)));
-        const unrankedSet = new Set(unrankedSongs.map((s: any) => normalizeTitle(s.title)));
-        const historySet = new Set(histories.map((h: any) => normalizeTitle(h.title)));
-        
-        const lastSeenMap = new Map<string, number>();
-        snapshots.forEach((snap: any) => snap.songs.forEach((s: any) => lastSeenMap.set(normalizeTitle(s.title), snap.date.getTime())));
-
-        // Legacy Base 1: From Histories
-        const baseFromHistory = histories
-            .filter((h: any) => !currentSet.has(normalizeTitle(h.title)) && !unrankedSet.has(normalizeTitle(h.title)))
-            .map((h: any) => {
-                const n = normalizeTitle(h.title), r = rawMap.get(n);
-                
-                // Prioritize historical last seen date. 
-                // Only use Date.now() if it's explicitly legacy in raw data but NOT found in history snapshots.
-                const historicalLastTime = lastSeenMap.get(n);
-                let lastTime = historicalLastTime || 0;
-                
-                if (!historicalLastTime && r && !r.isMain && !r.isUnranked) {
-                  lastTime = Date.now();
-                }
-                
-                return {
-                    ...r, title: h.title, artist: h.artist, isLegacy: true, isMain: false, rank: 0,
-                    tier: undefined,
-                    imageUrl: thumbnailMap.get(n) || 'https://via.placeholder.com/128x72.png?text=No+Image',
-                    removedDate: new Date(lastTime),
-                    lastSeenTime: lastTime,
-                    lastRank: h.history[h.history.length - 1]?.rank || 9999
-                } as Song;
-            });
-
-        // Legacy Base 2: Locally present but not main/unranked and not in history (uncommon)
-        const baseFromRaw = rawSongs
-            .filter((r: any) => !r.isMain && !r.isUnranked && !historySet.has(normalizeTitle(r.title)))
-            .map((r: any) => ({
-                ...r, isLegacy: true, isMain: false, rank: 0, tier: undefined,
-                removedDate: new Date(), lastSeenTime: Date.now(), lastRank: 9999
-            } as Song));
-
-        return [...baseFromHistory, ...baseFromRaw]
-            .sort((a: any, b: any) => (b.lastSeenTime - a.lastSeenTime) || (a.lastRank - b.lastRank));
-    }, [histories, mainSongs, unrankedSongs, snapshots, loading, rawMap, thumbnailMap, rawSongs]);
-
-    // 3. Displayed List Logic
     const displayedSongs = useMemo(() => {
-        if (loading || !rawSongs.length) return [];
-        let base: Song[] = [];
+        if (l || !raw.length) return [];
+        let list = s.showAllSongs ? [...main, ...legacy, ...unranked].map((x, i) => ({ ...x, rank: x.rank || (i + 1) })) : [...main];
 
-        // Forced in Edit mode via settings override in App (passed as settings.showAllSongs: true)
-        if (settings.showRevisionHistory && snapshots.length > 0 && !settings.showAllSongs) {
-            const snap = snapshots[settings.selectedRevisionIndex];
-            if (!snap) return [];
-
-            const currRankMap = new Map<string, number>(mainSongs.map((s: any) => [normalizeTitle(s.title), s.rank]));
-            const surviving = snap.songs.filter((s: any) => currRankMap.has(normalizeTitle(s.title)));
-            const histRelMap = new Map<string, number>(surviving.map((s: any, i: number) => [normalizeTitle(s.title), i + 1]));
-            
-            const currRelMap = new Map<string, number>([...surviving].sort((a: any, b: any) => {
-                const aVal = currRankMap.get(normalizeTitle(a.title)) || 999;
-                const bVal = currRankMap.get(normalizeTitle(b.title)) || 999;
-                return aVal - bVal;
-            }).map((s, i) => [normalizeTitle(s.title), i + 1]));
-
-            base = snap.songs.map((s: any) => {
-                const n = normalizeTitle(s.title), r = rawMap.get(n);
-                return {
-                    ...r, ...s, imageUrl: thumbnailMap.get(n) || 'https://via.placeholder.com/128x72.png?text=No+Image',
-                    tier: r?.tier,
-                    currentRank: currRankMap.get(n),
-                    relativeHistoricalRank: histRelMap.get(n),
-                    relativeCurrentRank: currRelMap.get(n)
-                } as Song;
-            });
-            if (settings.revisionSortMode === 'current') base.sort((a, b) => (a.currentRank || 9e5) - (b.currentRank || 9e5));
-        } else {
-            const mainBase = mainSongs.map(s => ({ ...s }));
-            
-            if (settings.showAllSongs) {
-                base = [...mainBase, ...legacySongs, ...unrankedSongs].map((s, i) => ({ ...s, rank: s.rank || (i + 1) }));
-            } else {
-                base = mainBase;
-            }
-        }
-
-        let filtered = base.filter(s => s.isSeparator || (
-            (settings.songTypeFilter === 'all' || s.type === settings.songTypeFilter) &&
-            (settings.artistFilter === 'all' || s.artist === settings.artistFilter) &&
-            (settings.tierFilter === 'all' || s.tier === settings.tierFilter)
+        list = list.filter(x => x.isSeparator || (
+            (s.songTypeFilter === 'all' || x.type === s.songTypeFilter) &&
+            (s.artistFilter === 'all' || x.artist === s.artistFilter) &&
+            (s.tierFilter === 'all' || x.tier === s.tierFilter)
         ));
 
-        if (settings.rankDisplayMode === 'group' && settings.songTypeFilter !== 'all' && !settings.showRevisionHistory) {
-            filtered = filtered.map((s, i) => s.isSeparator ? s : ({ ...s, rank: i + 1 }));
-        }
+        if (s.rankDisplayMode === 'group' && s.songTypeFilter !== 'all') list = list.map((x, i) => x.isSeparator ? x : ({ ...x, rank: i + 1 }));
 
-        if (settings.sortMode === 'title') {
-            filtered.sort((a, b) => a.isSeparator ? 1 : b.isSeparator ? -1 : a.title.localeCompare(b.title));
-        } else if (settings.sortMode === 'date') {
-            filtered.sort((a, b) => a.isSeparator ? 1 : b.isSeparator ? -1 : (new Date(a.dateAdded || 0).getTime() - new Date(b.dateAdded || 0).getTime()));
-        }
+        if (s.sortMode === 'title') list.sort((a, b) => a.isSeparator ? 1 : b.isSeparator ? -1 : a.title.localeCompare(b.title));
+        else if (s.sortMode === 'date') list.sort((a, b) => a.isSeparator ? 1 : b.isSeparator ? -1 : (new Date(a.dateAdded || 0).getTime() - new Date(b.dateAdded || 0).getTime()));
 
-        return filtered;
-    }, [mainSongs, snapshots, rawSongs, histories, settings, loading, legacySongs, unrankedSongs, rawMap, historyMap, thumbnailMap]);
+        return list;
+    }, [main, l, legacy, unranked, s]);
 
-    // 4. Demon List & Totals
     const displayedDemonLevels = useMemo(() => {
-        const levels = data.demonLevels.verified || [];
-        const filterIdx = DEMON_LIST_HIERARCHY.indexOf(demonListFilter);
-        
-        const hierarchicalFiltered = levels
-            .filter((l: any) => {
-                const levelIdx = DEMON_LIST_HIERARCHY.indexOf(l.list);
-                return levelIdx !== -1 && levelIdx <= filterIdx;
-            })
-            .map((l: any, i: number) => ({ ...l, rank: i + 1 }));
+        const lvl = d.demonLevels.verified || [], idx = DL_HIER.indexOf(df);
+        const res = lvl.filter((l:any) => { const i = DL_HIER.indexOf(l.list); return i !== -1 && i <= idx; }).map((l:any, i:number) => ({ ...l, rank: i + 1 }));
+        return dt === 'main' ? res.slice(0, 75) : dt === 'extended' ? res.slice(75, 150) : res.slice(0, 150);
+    }, [d.demonLevels, dt, df]);
 
-        if (demonListType === 'main') return hierarchicalFiltered.slice(0, 75);
-        if (demonListType === 'extended') return hierarchicalFiltered.slice(75, 150);
-        if (demonListType === 'all') return hierarchicalFiltered.slice(0, 150);
-        return hierarchicalFiltered;
-    }, [data.demonLevels, demonListType, demonListFilter]);
+    const historyList = useMemo(() => {
+        if (!cl || !d.thumbnailMap) return [];
+        const ts = new Date(s.historyPoint).getTime();
+        let l: any[] = [], lTs = -1;
+        for (const e of cl.filter((x:any)=>x.timestamp <= ts)) {
+            const ta = e.artist||d.titleToArtistMap.get(nt(e.song))||'N/A', k = gk(e.song, ta);
+            const sObj: any = { title: e.song, artist: d.artistMap.get(k)||ta, remixer: d.remixerMap.get(k)||'N/A', type: d.typeMap.get(k)||'Vocal', imageUrl: d.thumbnailMap.get(k)||'https://via.placeholder.com/128x72.png?text=No+Image', link: d.linkMap.get(k), dateAdded: d.dateMap.get(k), duration: d.durationMap.get(k), modernStatus: 'History', isMain: true, rank: e.new };
+            const tIdx = Math.max(0, Math.min(l.length, e.new - 1));
 
-    const currentMaxEntries = useMemo(() => {
-        if (viewState.selectedHistorySong) return undefined;
-        const counts: Record<string, number | undefined> = { 
-            visual: displayedSongs.length, 
-            demonlist: displayedDemonLevels.length, 
-            'history-changelog': snapshots.filter((s: any) => s.changelogEntries?.length).length 
-        };
-        return counts[viewState.active as string];
-    }, [viewState.active, viewState.selectedHistorySong, displayedSongs.length, displayedDemonLevels.length, snapshots]);
+            if (e.type === 'Snapshot' && e.new > 0) {
+                if (lTs !== e.timestamp) { l = []; lTs = e.timestamp; }
+                l = l.filter(x => gk(x.title, x.artist) !== k); l.splice(tIdx, 0, sObj);
+            } else if ((e.type === 'Placement' || e.type === 'Movement') && e.new > 0) {
+                l = l.filter(x => gk(x.title, x.artist) !== k); l.splice(tIdx, 0, sObj);
+            } else if (e.type === 'Removal') {
+                const i = l.findIndex(x => gk(x.title, x.artist) === k); if (i !== -1) l.splice(i, 1);
+            } else if (e.type === 'Swap') {
+                const i = l.findIndex(x => gk(x.title, x.artist) === k);
+                if (i > 0) { [l[i], l[i-1]] = [l[i-1], l[i]]; }
+            } else if (e.type === 'Clear') l = [];
+        }
+        return l.map((x, i) => ({ ...x, rank: i + 1 }));
+    }, [cl, s.historyPoint, d]);
 
     return {
-        displayedSongs,
-        displayedDemonLevels,
-        uniqueArtists,
-        remixerMap,
-        historyMap,
-        currentMaxEntries,
-        globalNavigationList: [...mainSongs, { title: "legacy", isSeparator: true } as any, ...legacySongs, { title: "unranked", isSeparator: true } as any, ...unrankedSongs],
-        selectedSongMetadata: viewState.selectedHistorySong ? rawMap.get(normalizeTitle(viewState.selectedHistorySong.title)) : undefined
+        displayedSongs, displayedDemonLevels, uniqueArtists, historyList,
+        currentMaxEntries: { visual: displayedSongs.length, demonlist: displayedDemonLevels.length, changelog: historyList.length }[vs.active as string],
+        globalNavigationList: [...main, { title: "legacy", isSeparator: true }, ...legacy, { title: "unranked", isSeparator: true }, ...unranked]
     };
 };
